@@ -1,12 +1,31 @@
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { Trash2Icon } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import documentService from "@/lib/services/document";
 
 import type { Document as DocumentType } from "@/types/document";
-import Link from "next/link";
+import type { Updater } from "use-mutative";
 
-export function DocumentCard({ doc }: { doc: DocumentType<true> }) {
+export function DocumentCard({
+  doc,
+  documentAction,
+}: {
+  doc: DocumentType<true>;
+  documentAction: Updater<DocumentType<true>[]>;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const src = useMemo(
     () =>
@@ -15,6 +34,21 @@ export function DocumentCard({ doc }: { doc: DocumentType<true> }) {
         : undefined,
     [doc.pages]
   );
+
+  const handleDelete = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      await documentService.delete(doc.id);
+      documentAction((draft) => {
+        draft.splice(
+          draft.findIndex((item) => item.id === doc.id),
+          1
+        );
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [doc.id, documentAction]);
 
   useEffect(() => {
     const img = imageRef.current;
@@ -42,10 +76,36 @@ export function DocumentCard({ doc }: { doc: DocumentType<true> }) {
           </time>
         </div>
       </Link>
-      <Button variant="destructive">
-        <Trash2Icon />
-        Delete
-      </Button>
+      <ResponsiveDialog>
+        <ResponsiveDialogTrigger asChild>
+          <Button variant="destructive">
+            <Trash2Icon />
+            Delete
+          </Button>
+        </ResponsiveDialogTrigger>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Delete document?</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              This will permanently delete &quot;{doc.name}&quot; and all of its
+              data. This action cannot be undone.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </ResponsiveDialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2Icon className="size-4 animate-spin" />}
+              Delete
+            </Button>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </div>
   );
 }

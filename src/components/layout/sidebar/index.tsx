@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import {
   BookMarkedIcon,
   FileTextIcon,
+  HomeIcon,
   type LucideIcon,
   // Settings,
-  Upload,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { NavButton } from "./nav-button";
@@ -21,8 +21,8 @@ interface Route {
 const routes: Route[] = [
   {
     href: "/",
-    icon: Upload,
-    label: "Upload",
+    icon: HomeIcon,
+    label: "Home",
   },
   {
     href: "/my-documents",
@@ -35,11 +35,11 @@ export function Sidebar() {
   const path = usePathname();
   return (
     <nav className="fixed left-0 top-0 bottom-0 flex-col p-4 z-40 bg-card border-r border-border hidden md:flex w-64">
-      <article className="flex items-center gap-4">
-        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-          <FileTextIcon />
+      <article className="flex items-center gap-2">
+        <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+          <FileTextIcon className="size-4" />
         </div>
-        <h1 className="text-2xl font-semibold text-primary">PDFScanner</h1>
+        <h1 className="text-xl font-semibold text-primary">PDFScanner</h1>
       </article>
       <Separator className="my-3" />
       <div className="space-y-2 mb-10">
