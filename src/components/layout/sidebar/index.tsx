@@ -1,0 +1,64 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BookMarkedIcon,
+  FileTextIcon,
+  type LucideIcon,
+  // Settings,
+  Upload,
+} from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { NavButton } from "./nav-button";
+
+interface Route {
+  href: Parameters<typeof Link>[0]["href"];
+  icon: LucideIcon;
+  label: string;
+}
+
+const routes: Route[] = [
+  {
+    href: "/",
+    icon: Upload,
+    label: "Upload",
+  },
+  {
+    href: "/my-documents",
+    icon: BookMarkedIcon,
+    label: "My Documents",
+  },
+];
+
+export function Sidebar() {
+  const path = usePathname();
+  return (
+    <nav className="fixed left-0 top-0 bottom-0 flex-col p-4 z-40 bg-card border-r border-border hidden md:flex w-64">
+      <article className="flex items-center gap-4">
+        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+          <FileTextIcon />
+        </div>
+        <h1 className="text-2xl font-semibold text-primary">PDFScanner</h1>
+      </article>
+      <Separator className="my-3" />
+      <div className="space-y-2 mb-10">
+        {routes.map((route) => (
+          <NavButton key={route.label} asChild active={path === route.href}>
+            <Link href={route.href}>
+              <route.icon />
+              {route.label}
+            </Link>
+          </NavButton>
+        ))}
+      </div>
+      {/* <div className="mt-auto space-y-2">
+        <Separator />
+        <NavButton>
+          <Settings />
+          Settings
+        </NavButton>
+      </div> */}
+    </nav>
+  );
+}
