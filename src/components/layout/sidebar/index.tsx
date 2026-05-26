@@ -6,17 +6,12 @@ import {
   BookMarkedIcon,
   FileTextIcon,
   HomeIcon,
-  type LucideIcon,
   // Settings,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { NavButton } from "./nav-button";
 
-interface Route {
-  href: Parameters<typeof Link>[0]["href"];
-  icon: LucideIcon;
-  label: string;
-}
+import type { Route } from "../type";
 
 const routes: Route[] = [
   {
@@ -33,6 +28,7 @@ const routes: Route[] = [
 
 export function Sidebar() {
   const path = usePathname();
+
   return (
     <nav className="fixed left-0 top-0 bottom-0 flex-col p-4 z-40 bg-card border-r border-border hidden md:flex w-64">
       <article className="flex items-center gap-2">

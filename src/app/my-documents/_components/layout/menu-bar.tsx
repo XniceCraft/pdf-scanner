@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "lucide-react";
 
 type SortEnum =
   | "name-asc"
@@ -50,19 +50,31 @@ export function MenuBar() {
 
   return (
     <nav className="p-4 bg-white/5 border-b flex flex-nowrap gap-3">
-      <Input
-        placeholder="Search documents"
-        value={state.search}
-        onChange={(e) =>
-          setState(
-            { search: e.target.value },
-            {
-              limitUrlUpdates:
-                e.target.value === "" ? undefined : debounce(500),
-            }
-          )
-        }
-      />
+      <div className="relative w-full">
+        <Input
+          placeholder="Search documents"
+          value={state.search}
+          onChange={(e) =>
+            setState(
+              { search: e.target.value },
+              {
+                limitUrlUpdates:
+                  e.target.value === "" ? undefined : debounce(500),
+              }
+            )
+          }
+        />
+        {state.search && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-1/2 -translate-y-1/2"
+            onClick={() => setState({ search: "" })}
+          >
+            <XIcon />
+          </Button>
+        )}
+      </div>
       <Select
         value={state.sort}
         onValueChange={(value) => setState({ sort: value as SortEnum })}

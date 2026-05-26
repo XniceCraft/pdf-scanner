@@ -1,5 +1,23 @@
-import { type Dispatch, type SetStateAction, useCallback } from "react";
+"use client";
+
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  ResponsiveDialog,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@/components/ui/responsive-dialog";
 import { Trash2Icon } from "lucide-react";
 import pageService from "@/lib/services/page";
 
@@ -15,32 +33,66 @@ export function DeletePageButton({
   pageId: number;
   setActivePage: Dispatch<SetStateAction<number>>;
 }) {
-  const handleDeletePage = useCallback(async () => {
-    documentAction((draft) => {
-      if (!draft) return;
-      const index = draft.pages.findIndex((p) => p.id === pageId);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
 
-      if (index !== -1) {
-        draft.pages.splice(index, 1);
-        setActivePage((prev) =>
-          prev === index ? Math.max(0, index - 1) : prev
-        );
-      }
-    });
-    await pageService.delete(pageId);
+  const handleDeletePage = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      documentAction((draft) => {
+        if (!draft) return;
+        const index = draft.pages.findIndex((p) => p.id === pageId);
+
+        if (index !== -1) {
+          draft.pages.splice(index, 1);
+          setActivePage((prev) =>
+            prev === index ? Math.max(0, index - 1) : prev
+          );
+        }
+      });
+      await pageService.delete(pageId);
+    } finally {
+      setIsDeleting(false);
+      setShowDialog(false);
+    }
   }, [documentAction, pageId, setActivePage]);
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="destructive"
-        className="font-bold text-xs px-3 rounded-lg hover:opacity-90 active:scale-95 transition-all"
-        onClick={handleDeletePage}
-      >
-        <Trash2Icon />
-        Delete
-      </Button>
+      <ResponsiveDialog open={showDialog} onOpenChange={setShowDialog}>
+        <ResponsiveDialogTrigger asChild>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="font-bold text-xs px-3 rounded-lg hover:opacity-90 active:scale-95 transition-all"
+          >
+            <Trash2Icon />
+            Delete
+          </Button>
+        </ResponsiveDialogTrigger>
+        <ResponsiveDialogContent>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>Delete current page?</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              This will permanently delete current page. This action cannot be
+              undone.
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </ResponsiveDialogClose>
+            <Button
+              variant="destructive"
+              onClick={handleDeletePage}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Spinner />}
+              Delete
+            </Button>
+          </ResponsiveDialogFooter>
+        </ResponsiveDialogContent>
+      </ResponsiveDialog>
     </>
   );
 }

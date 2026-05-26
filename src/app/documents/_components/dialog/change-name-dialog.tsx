@@ -22,7 +22,7 @@ import toast from "react-hot-toast";
 
 import type { Document as DocumentType } from "@/types/document";
 import type { Updater } from "use-mutative";
-import type { z } from "zod";
+import type { z } from "zod/mini";
 
 export function ChangeNameDialog({
   documentUpdater,

@@ -84,7 +84,6 @@ export function Content() {
           </div>
         )}
       </aside>
-      ;
     </>
   );
 }

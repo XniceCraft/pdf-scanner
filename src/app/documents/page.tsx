@@ -1,13 +1,12 @@
-import { DocumentLayout } from "@/components/layout/document-layout";
 import { Content } from "./_components/content";
 import { Suspense } from "react";
 
 export default function DocumentPage() {
   return (
-    <DocumentLayout>
+    <div className="h-screen flex flex-col">
       <Suspense>
         <Content />
       </Suspense>
-    </DocumentLayout>
+    </div>
   );
 }

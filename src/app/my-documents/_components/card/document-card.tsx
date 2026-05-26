@@ -37,7 +37,7 @@ export function DocumentCard({
   const src = useMemo(
     () =>
       doc.pages?.[0]
-        ? URL.createObjectURL(doc.pages?.[0].image.source)
+        ? URL.createObjectURL(doc.pages?.[0].image.thumbnail)
         : undefined,
     [doc.pages]
   );

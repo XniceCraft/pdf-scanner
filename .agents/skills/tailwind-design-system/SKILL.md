@@ -414,9 +414,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 
-const schema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+const schema = object({
+  email: string().email('Invalid email address'),
+  password: string().min(8, 'Password must be at least 8 characters'),
 })
 
 function LoginForm() {
@@ -547,7 +547,7 @@ export function cn(...inputs: ClassValue[]) {
 // Focus ring utility
 export const focusRing = cn(
   "focus-visible:outline-none focus-visible:ring-2",
-  "focus-visible:ring-ring focus-visible:ring-offset-2",
+  "focus-visible:ring-ring focus-visible:ring-offset-2"
 );
 
 // Disabled utility

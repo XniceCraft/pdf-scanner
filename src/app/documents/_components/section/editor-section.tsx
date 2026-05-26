@@ -16,7 +16,7 @@ import transformService from "@/lib/services/transform";
 import type { Document as DocumentType } from "@/types/document";
 import type { Page } from "@/types/page";
 import type { Updater } from "use-mutative";
-import type { z } from "zod";
+import type { z } from "zod/mini";
 
 const DEFAULT_EDIT_VALUES = {
   black: 0,
