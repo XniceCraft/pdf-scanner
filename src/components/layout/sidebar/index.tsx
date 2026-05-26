@@ -35,7 +35,7 @@ export function Sidebar() {
         <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
           <FileTextIcon className="size-4" />
         </div>
-        <h1 className="text-xl font-semibold text-primary">PDFScanner</h1>
+        <h1 className="text-xl font-semibold">PDFScanner</h1>
       </article>
       <Separator className="my-3" />
       <div className="space-y-2 mb-10">

@@ -19,6 +19,23 @@ export const metadata: Metadata = {
     default: "PDF Scanner",
     template: "%s - PDF Scanner",
   },
+  authors: [{ name: "XniceCraft", url: "https://github.com/XniceCraft" }],
+  keywords: [
+    "pdf",
+    "scanner",
+    "pdf scanner",
+    "pdf scan",
+    "xnicecraft",
+    "image to pdf",
+  ],
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
 };
 
 export default function RootLayout({

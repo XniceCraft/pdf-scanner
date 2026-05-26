@@ -52,7 +52,17 @@ export function MenuBar({
   return (
     <nav className="flex justify-between items-center border-b border-border py-1">
       <div>
-        <Button variant="ghost" type="button" onClick={() => router.back()}>
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/");
+            }
+          }}
+        >
           <ChevronLeftIcon /> Back
         </Button>
         <Button
