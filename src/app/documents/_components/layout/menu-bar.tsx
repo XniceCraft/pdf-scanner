@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ChangeNameDialog } from "../dialog/change-name-dialog";
@@ -20,28 +22,38 @@ export function MenuBar({
   documentName,
   documentUpdater,
 }: MenuBarProps) {
-  const handleExport = useCallback(async () => {
-    const blob = await documentService.exportToPdf(documentId);
-    if (!blob) {
-      toast.error("Failed to export document");
-      return;
-    }
+  const router = useRouter();
 
-    const anchor = document.createElement("a");
-    anchor.href = URL.createObjectURL(blob);
-    anchor.download = `${documentName}.pdf`;
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(anchor.href);
+  const handleExport = useCallback(async () => {
+    const toastId = toast.loading(`Exporting "${documentName}.pdf"`);
+
+    try {
+      const blob = await documentService.exportToPdf(documentId);
+      if (!blob) {
+        toast.error("Failed to export document");
+        return;
+      }
+
+      const anchor = document.createElement("a");
+      anchor.href = URL.createObjectURL(blob);
+      anchor.download = `${documentName}.pdf`;
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(anchor.href);
+
+      toast.success(`Exported "${documentName}.pdf" successfully`, {
+        id: toastId,
+      });
+    } catch {
+      toast.error(`Failed to export "${documentName}.pdf"`, { id: toastId });
+    }
   }, [documentId, documentName]);
 
   return (
     <nav className="flex justify-between items-center border-b border-border py-1">
       <div>
-        <Button variant="ghost" asChild>
-          <Link href={{ pathname: "/" }}>
-            <ChevronLeftIcon /> Back
-          </Link>
+        <Button variant="ghost" type="button" onClick={() => router.back()}>
+          <ChevronLeftIcon /> Back
         </Button>
         <Button
           variant="outline"

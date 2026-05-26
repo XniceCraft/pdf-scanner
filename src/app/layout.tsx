@@ -2,6 +2,8 @@ import "./globals.css";
 import { StrictMode } from "react";
 import { Outfit } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { Metadata } from "next";
 
@@ -35,7 +37,9 @@ export default function RootLayout({
           className="font-sans antialiased min-h-full flex flex-col"
           suppressHydrationWarning
         >
-          {children}
+          <NuqsAdapter>
+            <TooltipProvider>{children}</TooltipProvider>
+          </NuqsAdapter>
           <Toaster />
         </body>
       </html>

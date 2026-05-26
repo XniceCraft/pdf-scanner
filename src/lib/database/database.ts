@@ -10,7 +10,7 @@ class Database extends Dexie {
   constructor() {
     super("PDFScannerDatabase");
     this.version(1).stores({
-      documents: "++id, updatedAt",
+      documents: "++id, name, createdAt, updatedAt",
       pages: "++id, documentId",
     });
   }

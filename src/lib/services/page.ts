@@ -13,9 +13,14 @@ import type { Page, PageImage } from "@/types/page";
 
 interface FindByDocumentParams {
   first?: boolean;
+  count?: boolean;
 }
 
 class PageService {
+  findByDocument(
+    documentId: number,
+    params: FindByDocumentParams & { count: true }
+  ): Promise<number>;
   findByDocument(
     documentId: number,
     params: FindByDocumentParams & { first: true }
@@ -27,8 +32,12 @@ class PageService {
   findByDocument(
     documentId: number,
     params?: FindByDocumentParams
-  ): Promise<Page | undefined | Page[]> {
+  ): Promise<number | Page | undefined | Page[]> {
     const query = db.pages.where("documentId").equals(documentId);
+
+    if (params?.count) {
+      return query.count();
+    }
 
     if (params?.first) {
       return query.first();

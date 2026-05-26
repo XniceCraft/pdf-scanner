@@ -11,31 +11,62 @@ interface AllQueryParams {
   search?: string;
   sort?: "asc" | "desc";
   withFirstPage?: boolean;
+  withPageCount?: boolean;
 }
 
 class DocumentService {
   async all(
+    params: AllQueryParams & { withFirstPage: true; withPageCount: true }
+  ): Promise<DocumentType<true, true>[]>;
+  async all(
     params: AllQueryParams & { withFirstPage: true }
-  ): Promise<DocumentType<true>[]>;
-  async all(params?: AllQueryParams): Promise<DocumentType<false>[]>;
-  async all(params?: AllQueryParams): Promise<DocumentType<boolean>[]> {
-    const documents = await db.documents
-      .orderBy("updatedAt")
-      .reverse()
-      .toArray();
+  ): Promise<DocumentType<true, false>[]>;
+  async all(
+    params: AllQueryParams & { withPageCount: true }
+  ): Promise<DocumentType<false, true>[]>;
+  async all(params?: AllQueryParams): Promise<DocumentType<false, false>[]>;
+  async all(
+    params?: AllQueryParams
+  ): Promise<DocumentType<boolean, boolean>[]> {
+    let collection = db.documents.toCollection();
 
-    if (!params?.withFirstPage) {
-      return documents;
+    const orderBy = params?.orderBy ?? "updatedAt";
+    collection = db.documents.orderBy(orderBy);
+
+    if ((params?.sort ?? "desc") === "desc") {
+      collection = collection.reverse();
     }
+
+    if (params?.search) {
+      const keyword = params.search.toLowerCase();
+      collection = collection.filter((doc) =>
+        doc.name.toLowerCase().includes(keyword)
+      );
+    }
+
+    const documents = await collection.toArray();
 
     return Promise.all(
       documents.map(async (doc) => {
-        const page = await pageService.findByDocument(doc.id, {
-          first: true,
-        });
-        return { ...doc, pages: page ? [page] : [] };
+        const withFirstPage = params?.withFirstPage;
+        const withPageCount = params?.withPageCount;
+
+        const [page, pageCount] = await Promise.all([
+          withFirstPage
+            ? pageService.findByDocument(doc.id, { first: true })
+            : undefined,
+          withPageCount
+            ? pageService.findByDocument(doc.id, { count: true })
+            : undefined,
+        ]);
+
+        return {
+          ...doc,
+          ...(withFirstPage && { pages: page ? [page] : [] }),
+          ...(withPageCount && { pageCount: pageCount ?? 0 }),
+        };
       })
-    ) as Promise<DocumentType<true>[]>;
+    ) as Promise<DocumentType<boolean, boolean>[]>;
   }
 
   async find(id: number): Promise<DocumentType | undefined> {

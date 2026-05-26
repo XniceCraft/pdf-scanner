@@ -1,6 +1,6 @@
 "use client";
 
-import { useDebounceCallback } from "@/hooks/use-debouce-callback";
+import { useDebounceCallback } from "@/hooks/use-debounce-callback";
 import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
