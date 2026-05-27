@@ -1,22 +1,17 @@
-import { cn } from "@/lib/utils";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef } from "react";
 
-interface CardProps {
-  active?: boolean;
-  blob: Blob;
+export function PageCard({
+  documentId,
+  thumbnail,
+  index,
+}: {
+  documentId: number;
+  thumbnail: Blob;
   index: number;
-  onClick?: Dispatch<SetStateAction<number>>;
-}
-
-export function PageCard({ index, blob, active, onClick }: CardProps) {
-  const imageRef = useRef<HTMLImageElement>(null);
-  const src = useMemo(() => URL.createObjectURL(blob), [blob]);
+}) {
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const src = useMemo(() => URL.createObjectURL(thumbnail), [thumbnail]);
 
   useEffect(() => {
     const img = imageRef.current;
@@ -29,23 +24,19 @@ export function PageCard({ index, blob, active, onClick }: CardProps) {
   }, [src]);
 
   return (
-    <button
-      type="button"
-      className={cn(
-        "block w-16 h-16 p-3 relative",
-        active ? "bg-secondary border border-white/10" : "bg-muted/40"
-      )}
-      onClick={() => onClick?.(index)}
+    <Link
+      href={{ pathname: "/documents/edit", query: { id: documentId } }}
+      className="relative"
     >
       <img
-        ref={imageRef}
-        className="w-full h-full object-contain"
-        alt={`Page ${index + 1} scan`}
         src={src}
+        ref={imageRef}
+        alt={`Page ${index + 1}`}
+        className="w-full h-full object-cover"
       />
-      <p className="absolute top-0 left-0 bg-white/25 px-[0.2rem] py-[0.1rem] text-[0.6rem] text-white/60">
-        {index + 1}
-      </p>
-    </button>
+      <section className="absolute inset-x-0 bottom-0 flex items-center justify-center h-8 bg-black/60">
+        <p className="text-xs text-white">{index + 1}</p>
+      </section>
+    </Link>
   );
 }

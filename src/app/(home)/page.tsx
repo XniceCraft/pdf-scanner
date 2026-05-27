@@ -1,5 +1,3 @@
-"use client";
-
 import { Content } from "./_components/content";
 import { MainLayout } from "@/components/layout/main-layout";
 
@@ -15,7 +13,6 @@ export default function HomePage() {
             Let&apos;s get started with your document scan.
           </p>
         </section>
-
         <Content />
       </div>
     </MainLayout>

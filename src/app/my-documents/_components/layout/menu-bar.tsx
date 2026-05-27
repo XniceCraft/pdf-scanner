@@ -39,7 +39,7 @@ export function MenuBar() {
         "updatedAt-asc",
         "createdAt-desc",
         "createdAt-asc",
-      ]).withDefault("name-asc"),
+      ]).withDefault("updatedAt-desc"),
     },
     {
       history: "push",

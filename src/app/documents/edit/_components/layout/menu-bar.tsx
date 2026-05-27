@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ChangeNameDialog } from "@/components/dialog/change-name-dialog";
 import { ChevronLeftIcon, DownloadIcon } from "lucide-react";
@@ -12,15 +12,15 @@ import type { Updater } from "use-mutative";
 import type { Document as DocumentType } from "@/types/document";
 
 interface MenuBarProps {
-  documentUpdater: Updater<DocumentType<true> | null>;
   documentId: number;
   documentName: string;
+  documentUpdater: Updater<DocumentType<true> | null>;
 }
 
 export function MenuBar({
-  documentUpdater,
   documentId,
   documentName,
+  documentUpdater,
 }: MenuBarProps) {
   const router = useRouter();
 
@@ -50,28 +50,35 @@ export function MenuBar({
   }, [documentId, documentName]);
 
   return (
-    <nav className="p-2 bg-white/5 border-b flex flex-nowrap justify-between gap-3">
-      <Button
-        variant="outline"
-        type="button"
-        onClick={() => {
-          if (typeof window !== "undefined" && window.history.length > 1) {
-            router.back();
-          } else {
-            router.push("/");
-          }
-        }}
-      >
-        <ChevronLeftIcon /> Back
-      </Button>
+    <nav className="flex justify-between items-center border-b border-border py-1">
+      <div>
+        <Button
+          variant="ghost"
+          type="button"
+          onClick={() => {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/");
+            }
+          }}
+        >
+          <ChevronLeftIcon /> Back
+        </Button>
+        <Button
+          variant="outline"
+          type="button"
+          className="bg-primary/20! border-primary/40!"
+          onClick={handleExport}
+        >
+          <DownloadIcon /> Export
+        </Button>
+      </div>
       <ChangeNameDialog
         documentUpdater={documentUpdater}
         documentId={documentId}
         name={documentName}
       />
-      <Button variant="outline" type="button" onClick={handleExport}>
-        <DownloadIcon /> Export
-      </Button>
     </nav>
   );
 }

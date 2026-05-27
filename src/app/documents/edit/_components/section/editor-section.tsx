@@ -55,6 +55,7 @@ export function EditorSection({
         canvasRef.current,
         values
       );
+
       documentAction((prev) => {
         if (!prev) return rawReturn(undefined);
 

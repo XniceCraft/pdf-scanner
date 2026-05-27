@@ -1,15 +1,12 @@
 "use client";
 
 import { useMutative } from "use-mutative";
-import { useEffect, useState } from "react";
-import { rawReturn } from "mutative";
+import { useState, useEffect } from "react";
 import { notFound, useSearchParams } from "next/navigation";
-import { DeletePageButton } from "./button/delete-page-button";
-import { EditorSection } from "./section/editor-section";
-import { Loading } from "@/components/ui/loading";
 import { MenuBar } from "./layout/menu-bar";
-import { NewPageButton } from "./button/new-page-button";
+import { Spinner } from "@/components/ui/spinner";
 import { PageCard } from "./card/page-card";
+import { rawReturn } from "mutative";
 import documentService from "@/lib/services/document";
 
 import type { Document as DocumentType } from "@/types/document";
@@ -18,72 +15,57 @@ export function Content() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
 
-  const [activePage, setActivePage] = useState<number>(0);
-  const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
 
   useEffect(() => {
     if (!id) return notFound();
 
     async function fetchData() {
       setIsLoading(true);
-      const savedDoc = await documentService.findWithPages(Number(id));
+      const doc = await documentService.findWithPages(Number(id));
       setIsLoading(false);
-      if (!savedDoc) return;
+      if (!doc) return;
 
-      setDoc(rawReturn(savedDoc));
+      setDoc(rawReturn(doc));
     }
 
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        <Loading />
+      <div className="flex items-center justify-center min-h-50">
+        <Spinner className="size-8" />
       </div>
     );
   }
 
-  if (!doc) return notFound();
+  if (!doc || doc.pages.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-50 text-muted-foreground">
+        No pages found.
+      </div>
+    );
+  }
 
   return (
     <>
       <MenuBar
+        documentUpdater={setDoc}
         documentId={doc.id}
         documentName={doc.name}
-        documentUpdater={setDoc}
       />
-      <EditorSection documentAction={setDoc} page={doc.pages[activePage]} />
-      <aside className="bg-muted/30 border-r border-border z-40 hidden md:block">
-        <div className="flex items-center justify-between mb-2 px-3 pt-3">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-            {doc.pages?.length} Pages
-          </span>
-          <div className="flex gap-3">
-            <DeletePageButton
-              pageId={doc.pages[activePage].id}
-              documentAction={setDoc}
-              setActivePage={setActivePage}
-            />
-            <NewPageButton documentId={doc.id} documentAction={setDoc} />
-          </div>
-        </div>
-        {doc.pages && (
-          <div className="flex gap-1 px-1 pb-1">
-            {doc.pages.map((page, index) => (
-              <PageCard
-                key={page.id}
-                index={index}
-                blob={page.image.thumbnail}
-                active={activePage === index}
-                onClick={setActivePage}
-              />
-            ))}
-          </div>
-        )}
-      </aside>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+        {doc.pages.map((page, index) => (
+          <PageCard
+            key={page.id}
+            documentId={doc.id}
+            thumbnail={page.image.thumbnail}
+            index={index}
+          />
+        ))}
+      </div>
     </>
   );
 }
