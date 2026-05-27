@@ -3,8 +3,8 @@
 import { useMutative } from "use-mutative";
 import { useState, useEffect } from "react";
 import { notFound, useSearchParams } from "next/navigation";
+import { Loading } from "@/components/ui/loading";
 import { MenuBar } from "./layout/menu-bar";
-import { Spinner } from "@/components/ui/spinner";
 import { PageCard } from "./card/page-card";
 import { rawReturn } from "mutative";
 import documentService from "@/lib/services/document";
@@ -31,23 +31,18 @@ export function Content() {
     }
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-50">
-        <Spinner className="size-8" />
+      <div className="h-96 flex items-center justify-center">
+        <Loading />
       </div>
     );
   }
 
-  if (!doc || doc.pages.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-50 text-muted-foreground">
-        No pages found.
-      </div>
-    );
-  }
+  if (!doc) return notFound();
 
   return (
     <>
@@ -57,14 +52,20 @@ export function Content() {
         documentName={doc.name}
       />
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
-        {doc.pages.map((page, index) => (
-          <PageCard
-            key={page.id}
-            documentId={doc.id}
-            thumbnail={page.image.thumbnail}
-            index={index}
-          />
-        ))}
+        {doc.pages.length > 0 ? (
+          doc.pages.map((page, index) => (
+            <PageCard
+              key={page.id}
+              documentId={doc.id}
+              thumbnail={page.image.thumbnail}
+              index={index}
+            />
+          ))
+        ) : (
+          <div className="flex items-center justify-center min-h-50 text-muted-foreground">
+            No pages found.
+          </div>
+        )}
       </div>
     </>
   );
