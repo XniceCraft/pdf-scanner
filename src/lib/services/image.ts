@@ -1,12 +1,18 @@
 const DEFAULT_QUALITY = 0.85;
 const OUTPUT_FORMAT = "image/webp";
+type ImagePreset = "thumbnail" | "small" | "medium" | "large";
+
+const PRESET_WIDTHS: Record<ImagePreset, number> = {
+  thumbnail: 156,
+  small: 500,
+  medium: 750,
+  large: 1000,
+};
 
 class ImageService {
   async compress(file: File, quality: number = DEFAULT_QUALITY): Promise<File> {
     const bitmap = await createImageBitmap(file);
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
 
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Failed to get canvas context");
@@ -14,21 +20,9 @@ class ImageService {
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
 
-    return new Promise((resolve, reject) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) return reject(new Error("Failed to compress image"));
-
-          const compressed = new File(
-            [blob],
-            file.name.replace(/\.[^.]+$/, ".webp"),
-            { type: OUTPUT_FORMAT }
-          );
-          resolve(compressed);
-        },
-        OUTPUT_FORMAT,
-        quality
-      );
+    const blob = await canvas.convertToBlob({ type: OUTPUT_FORMAT, quality });
+    return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+      type: OUTPUT_FORMAT,
     });
   }
 
@@ -51,10 +45,39 @@ class ImageService {
   async getImageDimensionsBatch(
     sources: Blob[]
   ): Promise<{ width: number; height: number }[]> {
-    const bitmaps = await Promise.all(sources.map((s) => createImageBitmap(s)));
-    const dimensions = bitmaps.map(({ width, height }) => ({ width, height }));
-    bitmaps.forEach((b) => b.close());
-    return dimensions;
+    return Promise.all(
+      sources.map((source) => this.getImageDimensions(source))
+    );
+  }
+
+  async resize(
+    source: Blob,
+    originalWidth: number,
+    originalHeight: number,
+    preset: ImagePreset
+  ): Promise<Blob> {
+    const targetWidth = PRESET_WIDTHS[preset];
+    const targetHeight = Math.round(
+      (originalHeight / originalWidth) * targetWidth
+    );
+
+    const bitmap = await createImageBitmap(source, {
+      resizeWidth: targetWidth,
+      resizeHeight: targetHeight,
+      resizeQuality: "high",
+    });
+
+    const canvas = new OffscreenCanvas(targetWidth, targetHeight);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to get canvas context");
+
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+
+    return canvas.convertToBlob({
+      type: OUTPUT_FORMAT,
+      quality: DEFAULT_QUALITY,
+    });
   }
 }
 

@@ -1,29 +1,34 @@
 "use client";
 
 import { useDebounceCallback } from "@/hooks/use-debounce-callback";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useOpenCV } from "@/providers/opencv-provider";
 import { useForm } from "react-hook-form";
+import { AdjustmentForm } from "../form/adjustment-form";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { CropForm } from "../form/crop-form";
+import { CropIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SliderField } from "../field/slider-field";
 import { rawReturn } from "mutative";
-import { editSchema } from "@/lib/validations/page";
+import { upsertEditSchema } from "@/lib/validations/edit";
 import { zodResolver } from "@hookform/resolvers/zod";
 import pageService from "@/lib/services/page";
 import transformService from "@/lib/services/transform";
 
+import type { z } from "zod/mini";
 import type { Document as DocumentType } from "@/types/document";
 import type { Page } from "@/types/page";
 import type { Updater } from "use-mutative";
-import type { z } from "zod/mini";
+import type { Edit } from "@/types/edit";
 
-const DEFAULT_EDIT_VALUES = {
+const DEFAULT_EDIT_VALUES: Edit = {
+  preset: "original",
+  perspectiveCrop: { enabled: false },
+  rotation: 0,
   black: 0,
   brightness: 0,
   contrast: 0,
   highlight: 0,
-  rotation: 0,
   shadow: 0,
   temperature: 0,
   tint: 0,
@@ -39,18 +44,25 @@ export function EditorSection({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
+  const [editingField, setEditingField] = useState<"crop" | "adjustment">(
+    "adjustment"
+  );
 
-  const { control, subscribe, reset } = useForm<z.infer<typeof editSchema>>({
+  const { cv, isLoading: cvLoading } = useOpenCV();
+  const { control, subscribe, reset } = useForm<
+    z.infer<typeof upsertEditSchema>
+  >({
     defaultValues: DEFAULT_EDIT_VALUES,
-    resolver: zodResolver(editSchema),
+    resolver: zodResolver(upsertEditSchema),
     values: page.edit,
   });
 
   const debouncedCallback = useDebounceCallback(
-    async (values: z.infer<typeof editSchema>) => {
-      if (!bitmapRef.current || !canvasRef.current) return;
+    async (values: z.infer<typeof upsertEditSchema>) => {
+      if (!bitmapRef.current || !canvasRef.current || cvLoading) return;
 
-      await transformService.previewOnCanvas(
+      transformService.renderToCanvas(
+        cv,
         bitmapRef.current,
         canvasRef.current,
         values
@@ -69,6 +81,11 @@ export function EditorSection({
     500
   );
 
+  const handleReset = useCallback(async () => {
+    await pageService.resetEdit(page.id);
+    reset(DEFAULT_EDIT_VALUES);
+  }, [page.id, reset]);
+
   useEffect(() => {
     const cleanupSubscribe = subscribe({
       callback: ({ values }) => debouncedCallback(values),
@@ -84,117 +101,63 @@ export function EditorSection({
     async function showPreview() {
       if (!canvasRef.current) return;
 
-      const bm = await createImageBitmap(page.image.source);
+      const bm = await createImageBitmap(page.sourceImage.source);
       bitmapRef.current?.close();
       bitmapRef.current = bm;
 
-      if (canvasRef.current) {
-        await transformService.previewOnCanvas(
-          bm,
-          canvasRef.current,
-          page.edit
-        );
-      }
+      if (!cvLoading)
+        transformService.renderToCanvas(cv, bm, canvasRef.current, page.edit);
     }
 
     showPreview();
     return () => bitmapRef.current?.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id]);
+  }, [page.id, cvLoading]);
 
   return (
-    <div className="flex flex-row overflow-hidden h-full">
-      <div className="bg-neutral-900 overflow-y-auto flex items-center justify-center p-2 w-full">
+    <div className="flex flex-row overflow-hidden h-full bg-neutral-900">
+      <div className="overflow-y-auto flex items-start justify-center w-full">
         <canvas
           ref={canvasRef}
-          className="w-full h-full object-contain"
+          className="relative w-full h-full object-contain"
         ></canvas>
       </div>
 
+      <aside className="flex-col items-center hidden gap-3 lg:flex p-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={handleReset}
+        >
+          <RotateCcwIcon />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() =>
+            setEditingField((prev) => (prev === "crop" ? "adjustment" : "crop"))
+          }
+        >
+          {editingField === "crop" ? <SlidersHorizontalIcon /> : <CropIcon />}
+        </Button>
+      </aside>
       <ScrollArea
         type="always"
-        className="w-80 bg-muted/30 border-l border-border flex-col p-6 hidden lg:flex"
+        className="w-80 bg-muted/50 border-l border-border flex-col p-6 hidden lg:flex"
       >
         <form className="space-y-4 flex-1">
-          <h2 className="uppercase text-xs text-muted-foreground font-bold tracking-wide">
-            Color
-          </h2>
-          <SliderField
-            control={control}
-            name="temperature"
-            label="Temperature"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="tint"
-            label="Tint"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <Separator className="my-6" />
-          <h2 className="uppercase text-xs text-muted-foreground font-bold tracking-wide">
-            Lightness
-          </h2>
-          <SliderField
-            control={control}
-            name="brightness"
-            label="Brightness"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="contrast"
-            label="Contrast"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="highlight"
-            label="Hightlight"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="shadow"
-            label="Shadow"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="white"
-            label="White"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <SliderField
-            control={control}
-            name="black"
-            label="Black"
-            min={-100}
-            max={100}
-            step={1}
-          />
-          <Separator className="my-6" />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => reset(DEFAULT_EDIT_VALUES)}
-          >
-            Reset
-          </Button>
+          {editingField === "adjustment" && (
+            <AdjustmentForm control={control} />
+          )}
+          {editingField === "crop" && (
+            <CropForm
+              control={control}
+              bitmapRef={bitmapRef}
+              canvasRef={canvasRef}
+            />
+          )}
         </form>
       </ScrollArea>
     </div>

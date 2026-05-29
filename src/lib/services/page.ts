@@ -1,77 +1,68 @@
 import db from "@/lib/database/database";
 import {
   type BulkCreatePageInput,
-  bulkCreatePageSchema,
   type CreatePageInput,
-  createPageSchema,
   type UpdateEditInput,
-  updateEditSchema,
 } from "@/lib/validations/page";
 import imageService from "@/lib/services/image";
 
-import type { Page, PageImage } from "@/types/page";
+import type { Page, SourceImage, EditedImage } from "@/types/page";
 
 interface FindByDocumentParams {
   first?: boolean;
-  count?: boolean;
 }
 
 class PageService {
-  findByDocument(
-    documentId: number,
-    params: FindByDocumentParams & { count: true }
-  ): Promise<number>;
-  findByDocument(
+  async findByDocument(
     documentId: number,
     params: FindByDocumentParams & { first: true }
   ): Promise<Page | undefined>;
-  findByDocument(
+  async findByDocument(
     documentId: number,
     params?: FindByDocumentParams
   ): Promise<Page[]>;
-  findByDocument(
+  async findByDocument(
     documentId: number,
     params?: FindByDocumentParams
-  ): Promise<number | Page | undefined | Page[]> {
+  ): Promise<Page | undefined | Page[]> {
     const query = db.pages.where("documentId").equals(documentId);
 
-    if (params?.count) {
-      return query.count();
-    }
-
     if (params?.first) {
-      return query.first();
+      return await query.first();
     }
 
-    return query.toArray();
+    return await query.toArray();
   }
 
-  find(id: number) {
-    return db.pages.get(id);
+  async find(id: number): Promise<Page | undefined> {
+    return await db.pages.get(id);
   }
 
-  count(documentId: number) {
-    return db.pages.where("documentId").equals(documentId).count();
+  async count(documentId: number): Promise<number> {
+    return await db.pages.where("documentId").equals(documentId).count();
   }
 
-  async create(input: CreatePageInput) {
-    const data = createPageSchema.parse(input);
-
-    const { width, height } = await imageService.getImageDimensions(
-      input.image
-    );
-    const image: PageImage = {
+  async create(data: CreatePageInput) {
+    const { width, height } = await imageService.getImageDimensions(data.image);
+    const sourceImage: SourceImage = {
       width,
       height,
-      source: input.image,
-      thumbnail: await imageService.compress(input.image),
+      source: data.image,
     };
+    const editedImage = await this.generateEditedImage(
+      data.image,
+      width,
+      height
+    );
 
     const id = await db.pages.add({
       documentId: data.documentId,
-      image,
+      sourceImage,
+      editedImage,
       edit: {
+        preset: "original",
         rotation: 0,
+        perspectiveCrop: { enabled: false },
         temperature: 0,
         tint: 0,
         brightness: 0,
@@ -85,27 +76,35 @@ class PageService {
     return id;
   }
 
-  async createMany(params: BulkCreatePageInput) {
-    const data = bulkCreatePageSchema.parse(params);
+  async createMany(data: BulkCreatePageInput) {
+    const dimensions = await imageService.getImageDimensionsBatch(data.images);
 
-    const [dimensions, thumbnails] = await Promise.all([
-      imageService.getImageDimensionsBatch(data.images),
-      imageService.compressBatch(data.images),
-    ]);
-
-    const images: PageImage[] = data.images.map((file, index) => ({
+    const sourceImages: SourceImage[] = data.images.map((file, index) => ({
       source: file,
       width: dimensions[index].width,
       height: dimensions[index].height,
-      thumbnail: thumbnails[index],
     }));
+
+    const editedImages: EditedImage[] = [];
+    for (let i = 0; i < data.images.length; i++) {
+      editedImages.push(
+        await this.generateEditedImage(
+          data.images[i],
+          dimensions[i].width,
+          dimensions[i].height
+        )
+      );
+    }
 
     return db.pages.bulkAdd(
       data.images.map((_, index) => ({
         documentId: data.documentId,
-        image: images[index],
+        sourceImage: sourceImages[index],
+        editedImage: editedImages[index],
         edit: {
+          preset: "original",
           rotation: 0,
+          perspectiveCrop: { enabled: false },
           temperature: 0,
           tint: 0,
           brightness: 0,
@@ -120,7 +119,7 @@ class PageService {
   }
 
   async findEdit(id: number) {
-    return db.transaction("r", db.pages, async () => {
+    return await db.transaction("r", db.pages, async () => {
       const page = await db.pages.get(id);
       if (!page) return;
 
@@ -128,10 +127,8 @@ class PageService {
     });
   }
 
-  async updateEdit(id: number, input: UpdateEditInput) {
-    const data = updateEditSchema.parse(input);
-
-    return db.transaction("rw", db.pages, async () => {
+  async updateEdit(id: number, data: UpdateEditInput) {
+    return await db.transaction("rw", db.pages, async () => {
       const page = await db.pages.get(id);
       if (!page) return;
 
@@ -141,15 +138,17 @@ class PageService {
     });
   }
 
-  async reset(id: number) {
-    return db.transaction("rw", db.pages, async () => {
+  async resetEdit(id: number) {
+    return await db.transaction("rw", db.pages, async () => {
       const page = await db.pages.get(id);
       if (!page) return;
       await db.pages.update(id, {
         edit: {
+          preset: "original",
+          rotation: 0,
+          perspectiveCrop: { enabled: false },
           brightness: 0,
           contrast: 0,
-          rotation: 0,
           temperature: 0,
           tint: 0,
           highlight: 0,
@@ -161,12 +160,30 @@ class PageService {
     });
   }
 
-  delete(id: number) {
-    return db.pages.delete(id);
+  async delete(id: number) {
+    return await db.pages.delete(id);
   }
 
-  deleteByDocument(documentId: number) {
-    return db.pages.where("documentId").equals(documentId).delete();
+  async deleteByDocument(documentId: number) {
+    return await db.pages.where("documentId").equals(documentId).delete();
+  }
+
+  private async generateEditedImage(
+    source: Blob,
+    width: number,
+    height: number
+  ): Promise<EditedImage> {
+    return Promise.all([
+      imageService.resize(source, width, height, "thumbnail"),
+      imageService.resize(source, width, height, "small"),
+      imageService.resize(source, width, height, "medium"),
+      imageService.resize(source, width, height, "large"),
+    ]).then(([thumbnail, small, medium, large]) => ({
+      thumbnail,
+      small,
+      medium,
+      large,
+    }));
   }
 }
 

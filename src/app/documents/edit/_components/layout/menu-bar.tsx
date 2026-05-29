@@ -45,7 +45,8 @@ export function MenuBar({
         id: toastId,
       });
     } catch {
-      toast.error(`Failed to export "${documentName}.pdf"`, { id: toastId });
+      toast.dismiss(toastId);
+      toast.error(`Failed to export "${documentName}.pdf"`);
     }
   }, [documentId, documentName]);
 

@@ -12,18 +12,18 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@/components/ui/responsive-dialog";
-import { EyeIcon, FileDownIcon, Trash2Icon } from "lucide-react";
-import { getDateTime, getUpdatedAt } from "@/lib/utils";
-import documentService from "@/lib/services/document";
-
-import type { Document as DocumentType } from "@/types/document";
-import type { Updater } from "use-mutative";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { EyeIcon, FileDownIcon, Trash2Icon } from "lucide-react";
+import { getDateTime, getUpdatedAt } from "@/lib/utils";
+import documentService from "@/lib/services/document";
 import toast from "react-hot-toast";
+
+import type { Document as DocumentType } from "@/types/document";
+import type { Updater } from "use-mutative";
 
 export function DocumentCard({
   doc,
@@ -37,7 +37,7 @@ export function DocumentCard({
   const src = useMemo(
     () =>
       doc.pages?.[0]
-        ? URL.createObjectURL(doc.pages?.[0].image.thumbnail)
+        ? URL.createObjectURL(doc.pages?.[0].editedImage.thumbnail)
         : undefined,
     [doc.pages]
   );
@@ -76,7 +76,8 @@ export function DocumentCard({
 
       toast.success(`Exported "${doc.name}.pdf" successfully`, { id: toastId });
     } catch {
-      toast.error(`Failed to export "${doc.name}.pdf"`, { id: toastId });
+      toast.dismiss(toastId);
+      toast.error(`Failed to export "${doc.name}.pdf"`);
     }
   }, [doc.id, doc.name]);
 

@@ -76,7 +76,7 @@ export function Content() {
               <PageCard
                 key={page.id}
                 index={index}
-                blob={page.image.thumbnail}
+                blob={page.editedImage.small}
                 active={activePage === index}
                 onClick={setActivePage}
               />
