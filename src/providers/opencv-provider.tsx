@@ -21,13 +21,12 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
   const [cv, setCV] = useState<typeof OpenCV | null>(null);
 
   useEffect(() => {
-    async function load() {
-      let cancelled = false;
+    let cancelled = false;
 
+    async function load() {
       try {
         const { loadOpenCV } = await import("@opencvjs/web");
         const opencv = await loadOpenCV();
-        console.log("loaded");
         if (cancelled) return;
 
         setCV(opencv);
@@ -35,13 +34,12 @@ export function OpenCVProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error("Failed to load OpenCV.js", error);
       }
-
-      return () => {
-        cancelled = true;
-      };
     }
 
     load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

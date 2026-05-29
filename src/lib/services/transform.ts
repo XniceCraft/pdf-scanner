@@ -1,4 +1,4 @@
-import type { Edit } from "@/types/edit";
+import type { Edit, PerspectiveCrop } from "@/types/edit";
 import type { OpenCV } from "@opencvjs/web";
 
 const A4_WIDTH = 2480;
@@ -11,6 +11,8 @@ const MAX_POINT_SHIFT = 50;
 const MAX_CONTRAST_C = 127;
 
 class TransformService {
+  // renderToCanvas src image (bitmap) must use pre-perspective warped image.
+  // If absent, use original image and generate perspective warped image.
   renderToCanvas(
     cv: typeof OpenCV,
     bitmap: ImageBitmap,
@@ -23,39 +25,78 @@ class TransformService {
     const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
 
     const src = cv.matFromImageData(imageData);
-    const warped = new cv.Mat();
-
-    if (edit.perspectiveCrop.enabled) {
-      const pts1 = cv.matFromArray(
-        4,
-        1,
-        cv.CV_32FC2,
-        edit.perspectiveCrop.points.flatMap((p) => [p.x, p.y])
-      );
-      const pts2 = cv.matFromArray(4, 1, cv.CV_32FC2, [
-        0,
-        0,
-        A4_WIDTH,
-        0,
-        0,
-        A4_HEIGHT,
-        A4_WIDTH,
-        A4_HEIGHT,
-      ]);
-
-      const matrix = cv.getPerspectiveTransform(pts1, pts2);
-      cv.warpPerspective(src, warped, matrix, new cv.Size(A4_WIDTH, A4_HEIGHT));
-      [pts1, pts2, matrix].forEach((m) => m.delete());
-    } else {
-      src.copyTo(warped);
-    }
-    src.delete();
-
-    const output = this.applyEdits(cv, warped, edit);
-    warped.delete();
+    const output = this.applyEdits(cv, src, edit);
 
     cv.imshow(canvas, output);
     output.delete();
+    src.delete();
+  }
+
+  // Used for perspective warp image caching
+  async generateWarped(
+    cv: typeof OpenCV,
+    bitmap: ImageBitmap,
+    points: Extract<PerspectiveCrop, { enabled: true }>["points"]
+  ): Promise<Blob> {
+    const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = offscreen.getContext("2d")!;
+    ctx.drawImage(bitmap, 0, 0);
+
+    const src = cv.matFromImageData(
+      ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+    );
+    const warped = new cv.Mat();
+
+    try {
+      this.applyWarp(cv, warped, src, points);
+
+      const out = document.createElement("canvas");
+      out.width = A4_WIDTH;
+      out.height = A4_HEIGHT;
+      cv.imshow(out, warped);
+
+      return await new Promise<Blob>((resolve, reject) =>
+        out.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+          "image/webp",
+          1
+        )
+      );
+    } finally {
+      src.delete();
+      warped.delete();
+    }
+  }
+
+  private applyWarp(
+    cv: typeof OpenCV,
+    warped: InstanceType<typeof cv.Mat>,
+    src: InstanceType<typeof cv.Mat>,
+    points: Extract<PerspectiveCrop, { enabled: true }>["points"]
+  ) {
+    const pts1 = cv.matFromArray(
+      4,
+      1,
+      cv.CV_32FC2,
+      points.flatMap(({ x, y }) => [x, y])
+    );
+    const pts2 = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      0,
+      0,
+      A4_WIDTH,
+      0,
+      0,
+      A4_HEIGHT,
+      A4_WIDTH,
+      A4_HEIGHT,
+    ]);
+
+    const matrix = cv.getPerspectiveTransform(pts1, pts2);
+    cv.warpPerspective(src, warped, matrix, new cv.Size(A4_WIDTH, A4_HEIGHT));
+
+    pts1.delete();
+    pts2.delete();
+    matrix.delete();
   }
 
   private applyEdits(

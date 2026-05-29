@@ -102,7 +102,7 @@ export function AdjustmentForm({ control }: AdjustmentFormProps) {
               <SliderField
                 control={control}
                 name="highlight"
-                label="Hightlight"
+                label="Highlight"
                 min={-100}
                 max={100}
                 step={1}

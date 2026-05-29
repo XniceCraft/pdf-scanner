@@ -23,7 +23,7 @@ export function Content() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (!id) return notFound();
+    if (!id) return;
 
     async function fetchData() {
       setIsLoading(true);

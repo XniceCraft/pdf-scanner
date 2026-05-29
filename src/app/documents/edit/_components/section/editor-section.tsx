@@ -82,8 +82,17 @@ export function EditorSection({
   );
 
   const handleReset = useCallback(async () => {
-    await pageService.resetEdit(page.id);
+    const editedImage = await pageService.resetEdit(page.id);
+    documentAction((prev) => {
+      if (!prev) return rawReturn(undefined);
+
+      const targetPage = prev.pages.find((p) => p.id === page.id);
+      if (!targetPage) return rawReturn(undefined);
+
+      targetPage.editedImage = editedImage!;
+    });
     reset(DEFAULT_EDIT_VALUES);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.id, reset]);
 
   useEffect(() => {
@@ -98,10 +107,12 @@ export function EditorSection({
   }, [subscribe, debouncedCallback]);
 
   useEffect(() => {
+    let bm: ImageBitmap | undefined;
+
     async function showPreview() {
       if (!canvasRef.current) return;
 
-      const bm = await createImageBitmap(page.sourceImage.source);
+      bm = await createImageBitmap(page.editedImage.large);
       bitmapRef.current?.close();
       bitmapRef.current = bm;
 
@@ -110,9 +121,12 @@ export function EditorSection({
     }
 
     showPreview();
-    return () => bitmapRef.current?.close();
+    return () => {
+      if (bm) bm.close();
+      bitmapRef.current?.close();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id, cvLoading]);
+  }, [page.id, page.editedImage.large, cvLoading]);
 
   return (
     <div className="flex flex-row overflow-hidden h-full bg-neutral-900">
@@ -153,7 +167,9 @@ export function EditorSection({
           )}
           {editingField === "crop" && (
             <CropForm
+              pageId={page.id}
               control={control}
+              documentAction={documentAction}
               bitmapRef={bitmapRef}
               canvasRef={canvasRef}
             />

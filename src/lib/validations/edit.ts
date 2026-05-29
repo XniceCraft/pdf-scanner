@@ -39,8 +39,8 @@ const luminanceEditShape = {
     .check(z.lte(100, "Brightness must be at most 100.")),
   contrast: z
     .int()
-    .check(z.gte(-100, "Constrast must be at least -100."))
-    .check(z.lte(100, "Constrast must be at most 100.")),
+    .check(z.gte(-100, "Contrast must be at least -100."))
+    .check(z.lte(100, "Contrast must be at most 100.")),
   highlight: z
     .int()
     .check(z.gte(-100, "Highlight must be at least -100."))
@@ -74,14 +74,8 @@ export const upsertEditSchema = z.discriminatedUnion("preset", [
   }),
   z.object({
     ...baseEditShape,
-    brightness: z
-      .int()
-      .check(z.gte(-100, "Brightness must be at least -100."))
-      .check(z.lte(100, "Brightness must be at most 100.")),
-    contrast: z
-      .int()
-      .check(z.gte(-100, "Constrast must be at least -100."))
-      .check(z.lte(100, "Constrast must be at most 100.")),
+    brightness: luminanceEditShape.brightness,
+    contrast: luminanceEditShape.contrast,
     preset: z.literal("no-shadow"),
   }),
 ]);

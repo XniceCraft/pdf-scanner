@@ -11,5 +11,10 @@ export const bulkCreatePageSchema = z.object({
   images: imageValidation(),
 });
 
+export const updatePageImageSchema = z.object({
+  image: z.instanceof(Blob),
+});
+
 export type CreatePageInput = z.infer<typeof createPageSchema>;
 export type BulkCreatePageInput = z.infer<typeof bulkCreatePageSchema>;
+export type UpdatePageImageInput = z.infer<typeof updatePageImageSchema>;

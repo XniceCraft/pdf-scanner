@@ -141,7 +141,9 @@ class OpenCVService {
 
     const edges = new cv.Mat();
     cv.Canny(thresh, edges, 50, 50);
-    cv.dilate(edges, edges, new cv.Mat(), new cv.Point(-1, -1), 1);
+    const kernel = new cv.Mat();
+    cv.dilate(edges, edges, kernel, new cv.Point(-1, -1), 1);
+    kernel.delete();
 
     const contours = new cv.MatVector();
     const hierarchy = new cv.Mat();

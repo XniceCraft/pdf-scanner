@@ -1,3 +1,5 @@
+import type { EditedImage } from "@/types/page";
+
 const DEFAULT_QUALITY = 0.85;
 const OUTPUT_FORMAT = "image/webp";
 type ImagePreset = "thumbnail" | "small" | "medium" | "large";
@@ -78,6 +80,24 @@ class ImageService {
       type: OUTPUT_FORMAT,
       quality: DEFAULT_QUALITY,
     });
+  }
+
+  async generateEditedImage(
+    source: Blob,
+    width: number,
+    height: number
+  ): Promise<EditedImage> {
+    return Promise.all([
+      this.resize(source, width, height, "thumbnail"),
+      this.resize(source, width, height, "small"),
+      this.resize(source, width, height, "medium"),
+      this.resize(source, width, height, "large"),
+    ]).then(([thumbnail, small, medium, large]) => ({
+      thumbnail,
+      small,
+      medium,
+      large,
+    }));
   }
 }
 
