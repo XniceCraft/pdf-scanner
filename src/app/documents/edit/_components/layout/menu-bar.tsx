@@ -1,13 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback } from "react";
-import { useOpenCV } from "@/providers/opencv-provider";
-import { Button } from "@/components/ui/button";
+import { useExportPdf } from "@/hooks/utils/use-export-pdf";
+import { Button, LoadingButton } from "@/components/ui/button";
 import { ChangeNameDialog } from "@/components/dialog/change-name-dialog";
 import { ChevronLeftIcon, DownloadIcon } from "lucide-react";
-import { toast } from "react-hot-toast";
-import documentService from "@/lib/services/document";
 
 import type { Updater } from "use-mutative";
 import type { Document as DocumentType } from "@/types/document";
@@ -24,38 +21,7 @@ export function MenuBar({
   documentUpdater,
 }: MenuBarProps) {
   const router = useRouter();
-
-  const { cv, isLoading } = useOpenCV();
-  const handleExport = useCallback(async () => {
-    const toastId = toast.loading(`Exporting "${documentName}.pdf"`);
-
-    try {
-      if (isLoading) {
-        toast.error("Please wait for OpenCV to load");
-        return;
-      }
-
-      const blob = await documentService.exportToPdf(cv, documentId);
-      if (!blob) {
-        toast.error("Failed to export document");
-        return;
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = URL.createObjectURL(blob);
-      anchor.download = `${documentName}.pdf`;
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(anchor.href);
-
-      toast.success(`Exported "${documentName}.pdf" successfully`, {
-        id: toastId,
-      });
-    } catch {
-      toast.dismiss(toastId);
-      toast.error(`Failed to export "${documentName}.pdf"`);
-    }
-  }, [cv, documentId, documentName, isLoading]);
+  const { exportPdf, isExporting } = useExportPdf(documentId, documentName);
 
   return (
     <nav className="flex justify-between items-center border-b border-border py-1">
@@ -73,14 +39,14 @@ export function MenuBar({
         >
           <ChevronLeftIcon /> Back
         </Button>
-        <Button
+        <LoadingButton
           variant="outline"
           type="button"
           className="bg-primary/20! border-primary/40!"
-          onClick={handleExport}
-        >
-          <DownloadIcon /> Export
-        </Button>
+          onClick={exportPdf}
+          isLoading={isExporting}
+          Icon={DownloadIcon}
+        />
       </div>
       <ChangeNameDialog
         documentUpdater={documentUpdater}

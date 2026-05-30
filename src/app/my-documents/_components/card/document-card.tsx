@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { useExportPdf } from "@/hooks/utils/use-export-pdf";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, LoadingButton } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ResponsiveDialog,
@@ -20,11 +21,9 @@ import {
 import { EyeIcon, FileDownIcon, Trash2Icon } from "lucide-react";
 import { getDateTime, getUpdatedAt } from "@/lib/utils";
 import documentService from "@/lib/services/document";
-import toast from "react-hot-toast";
 
 import type { Document as DocumentType } from "@/types/document";
 import type { Updater } from "use-mutative";
-import { useOpenCV } from "@/providers/opencv-provider";
 
 export function DocumentCard({
   doc,
@@ -33,6 +32,7 @@ export function DocumentCard({
   doc: DocumentType<true, true>;
   documentAction: Updater<DocumentType<true, true>[]>;
 }) {
+  const { exportPdf, isExporting } = useExportPdf(doc.id, doc.name);
   const [isDeleting, setIsDeleting] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
   const src = useMemo(
@@ -43,7 +43,6 @@ export function DocumentCard({
     [doc.pages]
   );
 
-  const { cv, isLoading } = useOpenCV();
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
     try {
@@ -58,35 +57,6 @@ export function DocumentCard({
       setIsDeleting(false);
     }
   }, [doc.id, documentAction]);
-
-  const handleExport = useCallback(async () => {
-    const toastId = toast.loading(`Exporting "${doc.name}.pdf"`);
-
-    try {
-      if (isLoading) {
-        toast.error("Please wait for OpenCV to load");
-        return;
-      }
-
-      const blob = await documentService.exportToPdf(cv, doc.id);
-      if (!blob) {
-        toast.error("Failed to export document");
-        return;
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = URL.createObjectURL(blob);
-      anchor.download = `${doc.name}.pdf`;
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(anchor.href);
-
-      toast.success(`Exported "${doc.name}.pdf" successfully`, { id: toastId });
-    } catch {
-      toast.dismiss(toastId);
-      toast.error(`Failed to export "${doc.name}.pdf"`);
-    }
-  }, [cv, doc.id, doc.name, isLoading]);
 
   useEffect(() => {
     const img = imageRef.current;
@@ -139,9 +109,12 @@ export function DocumentCard({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" onClick={handleExport}>
-              <FileDownIcon />
-            </Button>
+            <LoadingButton
+              variant="outline"
+              isLoading={isExporting}
+              onClick={exportPdf}
+              Icon={FileDownIcon}
+            />
           </TooltipTrigger>
           <TooltipContent>
             <p>Export to PDF</p>
