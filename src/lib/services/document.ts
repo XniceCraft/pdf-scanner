@@ -5,6 +5,7 @@ import transformService from "./transform";
 
 import type { UpsertDocumentInput } from "@/lib/validations/document";
 import type { Document as DocumentType } from "@/types/document";
+import type { OpenCV } from "@opencvjs/web";
 
 interface AllQueryParams {
   orderBy?: "createdAt" | "updatedAt" | "name";
@@ -105,36 +106,38 @@ class DocumentService {
     });
   }
 
-  async exportToPdf(id: number): Promise<Blob | undefined> {
-    // const document = await this.findWithPages(id);
-    // if (!document) return undefined;
+  async exportToPdf(cv: typeof OpenCV, id: number): Promise<Blob | undefined> {
+    const document = await this.findWithPages(id);
+    if (!document) return undefined;
 
-    // const doc = new jsPDF();
+    const doc = new jsPDF();
 
-    // for (let i = 0; i < document.pages.length; i++) {
-    //   const page = document.pages[i];
-    //   const aspectRatio = page.image.width / page.image.height;
+    for (let i = 0; i < document.pages.length; i++) {
+      const page = document.pages[i];
+      const sourceBitmap = await createImageBitmap(page.sourceImage.original);
+      const aspectRatio = sourceBitmap.width / sourceBitmap.height;
 
-    //   const pdfWidth = 210;
-    //   const pdfHeight = pdfWidth / aspectRatio;
+      const pdfWidth = 210;
+      const pdfHeight = pdfWidth / aspectRatio;
 
-    //   const x = 0;
-    //   const y = (297 - pdfHeight) / 2;
+      const x = 0;
+      const y = (297 - pdfHeight) / 2;
 
-    //   const editedBuffer = await transformService.apply(
-    //     page.image.source,
-    //     page.edit
-    //   );
-    //   const arrayBuffer = await editedBuffer.arrayBuffer();
-    //   const bytes = new Uint8Array(arrayBuffer);
-    //   doc.addImage(bytes, "JPEG", x, y, pdfWidth, pdfHeight);
+      const buffer = await transformService.exportPage(
+        cv,
+        sourceBitmap,
+        page.edit
+      );
+      const arrayBuffer = await buffer.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      doc.addImage(bytes, "JPEG", x, y, pdfWidth, pdfHeight);
 
-    //   if (i !== document.pages.length - 1) {
-    //     doc.addPage();
-    //   }
-    // }
+      if (i !== document.pages.length - 1) {
+        doc.addPage();
+      }
+    }
 
-    // return doc.output("blob");
+    return doc.output("blob");
     // TODO: Will implement after color filter
     return undefined;
   }

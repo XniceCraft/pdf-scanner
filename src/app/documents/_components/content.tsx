@@ -2,7 +2,8 @@
 
 import { useMutative } from "use-mutative";
 import { useState, useEffect } from "react";
-import { notFound, useSearchParams } from "next/navigation";
+import { parseAsInteger, useQueryState } from "nuqs";
+import { notFound } from "next/navigation";
 import { Loading } from "@/components/ui/loading";
 import { MenuBar } from "./layout/menu-bar";
 import { PageCard } from "./card/page-card";
@@ -12,18 +13,17 @@ import documentService from "@/lib/services/document";
 import type { Document as DocumentType } from "@/types/document";
 
 export function Content() {
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const [documentId] = useQueryState("id", parseAsInteger.withDefault(0));
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
 
   useEffect(() => {
-    if (!id) return notFound();
+    if (!documentId) return;
 
     async function fetchData() {
       setIsLoading(true);
-      const doc = await documentService.findWithPages(Number(id));
+      const doc = await documentService.findWithPages(documentId);
       setIsLoading(false);
       if (!doc) return;
 
@@ -32,7 +32,7 @@ export function Content() {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [documentId]);
 
   if (isLoading) {
     return (
@@ -57,6 +57,7 @@ export function Content() {
             <PageCard
               key={page.id}
               documentId={doc.id}
+              pageId={page.id}
               thumbnail={page.editedImage.small}
               index={index}
             />

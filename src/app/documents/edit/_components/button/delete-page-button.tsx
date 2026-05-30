@@ -58,41 +58,39 @@ export function DeletePageButton({
   }, [documentAction, pageId, setActivePage]);
 
   return (
-    <>
-      <ResponsiveDialog open={showDialog} onOpenChange={setShowDialog}>
-        <ResponsiveDialogTrigger asChild>
+    <ResponsiveDialog open={showDialog} onOpenChange={setShowDialog}>
+      <ResponsiveDialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="font-bold text-xs px-3 rounded-lg hover:opacity-90 active:scale-95 transition-all"
+        >
+          <Trash2Icon />
+          Delete
+        </Button>
+      </ResponsiveDialogTrigger>
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>Delete current page?</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            This will permanently delete current page. This action cannot be
+            undone.
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+        <ResponsiveDialogFooter>
+          <ResponsiveDialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </ResponsiveDialogClose>
           <Button
-            size="sm"
             variant="destructive"
-            className="font-bold text-xs px-3 rounded-lg hover:opacity-90 active:scale-95 transition-all"
+            onClick={handleDeletePage}
+            disabled={isDeleting}
           >
-            <Trash2Icon />
+            {isDeleting && <Spinner />}
             Delete
           </Button>
-        </ResponsiveDialogTrigger>
-        <ResponsiveDialogContent>
-          <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>Delete current page?</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              This will permanently delete current page. This action cannot be
-              undone.
-            </ResponsiveDialogDescription>
-          </ResponsiveDialogHeader>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </ResponsiveDialogClose>
-            <Button
-              variant="destructive"
-              onClick={handleDeletePage}
-              disabled={isDeleting}
-            >
-              {isDeleting && <Spinner />}
-              Delete
-            </Button>
-          </ResponsiveDialogFooter>
-        </ResponsiveDialogContent>
-      </ResponsiveDialog>
-    </>
+        </ResponsiveDialogFooter>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
   );
 }

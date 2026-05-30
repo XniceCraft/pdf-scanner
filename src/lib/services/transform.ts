@@ -25,7 +25,8 @@ class TransformService {
     const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
 
     const src = cv.matFromImageData(imageData);
-    const output = this.applyEdits(cv, src, edit);
+    const output = new cv.Mat();
+    this.applyEdits(cv, src, edit, output);
 
     cv.imshow(canvas, output);
     output.delete();
@@ -68,6 +69,46 @@ class TransformService {
     }
   }
 
+  async exportPage(
+    cv: typeof OpenCV,
+    bitmap: ImageBitmap,
+    edit: Edit
+  ): Promise<Blob> {
+    const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = offscreen.getContext("2d")!;
+    ctx.drawImage(bitmap, 0, 0);
+
+    const src = cv.matFromImageData(
+      ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+    );
+    const output = new cv.Mat();
+
+    if (edit.perspectiveCrop.enabled) {
+      this.applyWarp(cv, output, src, edit.perspectiveCrop.points);
+    } else {
+      src.copyTo(output);
+    }
+    this.applyEdits(cv, output, edit, output);
+
+    try {
+      const out = document.createElement("canvas");
+      out.width = bitmap.width;
+      out.height = bitmap.height;
+      cv.imshow(out, output);
+
+      return await new Promise<Blob>((resolve, reject) =>
+        out.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+          "image/webp",
+          1
+        )
+      );
+    } finally {
+      src.delete();
+      output.delete();
+    }
+  }
+
   private applyWarp(
     cv: typeof OpenCV,
     warped: InstanceType<typeof cv.Mat>,
@@ -102,8 +143,9 @@ class TransformService {
   private applyEdits(
     cv: typeof OpenCV,
     src: InstanceType<typeof cv.Mat>,
-    edit: Edit
-  ): InstanceType<typeof cv.Mat> {
+    edit: Edit,
+    output: InstanceType<typeof cv.Mat>
+  ) {
     const rgb = new cv.Mat();
     cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
 
@@ -134,11 +176,8 @@ class TransformService {
     cv.merge(channels, merged);
     channels.delete();
 
-    const result = new cv.Mat();
-    cv.cvtColor(merged, result, cv.COLOR_Lab2RGB);
+    cv.cvtColor(merged, output, cv.COLOR_Lab2RGB);
     merged.delete();
-
-    return result;
   }
 
   private applyLUT(

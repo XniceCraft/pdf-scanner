@@ -10,8 +10,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { parseAsInteger, useQueryStates } from "nuqs";
+import { notFound } from "next/navigation";
 import { rawReturn } from "mutative";
-import { notFound, useSearchParams } from "next/navigation";
 import { DeletePageButton } from "./button/delete-page-button";
 import { EditorSection } from "./section/editor-section";
 import { Loading } from "@/components/ui/loading";
@@ -26,10 +27,13 @@ import type { EditedImage } from "@/types/page";
 
 const MenuBarMemo = memo(MenuBar);
 const PageCardMemo = memo(PageCard);
+const NewPageButtonMemo = memo(NewPageButton);
 
 export function Content() {
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const [{ id: documentId, page: pageId }] = useQueryStates({
+    id: parseAsInteger.withDefault(0),
+    page: parseAsInteger.withDefault(0),
+  });
 
   const editBufferRef = useRef<{
     edit: Edit | null;
@@ -44,20 +48,22 @@ export function Content() {
   const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!documentId) return;
 
     async function fetchData() {
       setIsLoading(true);
-      const savedDoc = await documentService.findWithPages(Number(id));
+      const savedDoc = await documentService.findWithPages(documentId);
       setIsLoading(false);
       if (!savedDoc) return;
 
+      const active = savedDoc.pages.findIndex((p) => p.id === pageId);
       setDoc(rawReturn(savedDoc));
+      setActivePage(active === -1 ? 0 : active);
     }
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [documentId]);
 
   const handleUpdateEdit = useCallback((edit: Edit) => {
     editBufferRef.current.edit = edit;
@@ -67,8 +73,8 @@ export function Content() {
     editBufferRef.current.editedImage = editedImage;
   }, []);
 
-  const setCurrentPage = useCallback(
-    (pageIndex: number) => {
+  const setCurrentPage = useCallback((pageIndex: number) => {
+    if (editBufferRef.current.edit || editBufferRef.current.editedImage)
       setDoc((prevDocument) => {
         if (!prevDocument) return rawReturn(undefined);
 
@@ -84,10 +90,9 @@ export function Content() {
         };
       });
 
-      setActivePage(pageIndex);
-    },
-    [activePage, setDoc]
-  ) as Dispatch<SetStateAction<number>>;
+    setActivePage(pageIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) as Dispatch<SetStateAction<number>>;
 
   if (isLoading) {
     return (
@@ -125,7 +130,7 @@ export function Content() {
               documentAction={setDoc}
               setActivePage={setCurrentPage}
             />
-            <NewPageButton documentId={doc.id} documentAction={setDoc} />
+            <NewPageButtonMemo documentId={doc.id} documentAction={setDoc} />
           </div>
         </div>
         {doc.pages && (

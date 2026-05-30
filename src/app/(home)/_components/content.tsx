@@ -127,7 +127,7 @@ export function Content() {
                   Drag &amp; Drop Documents
                 </h2>
                 <p className="text-sm text-muted-foreground max-w-sm mb-10">
-                  Upload your PDF, JPG, or PNG files to start processing.
+                  Upload your WEBP, JPG, or PNG files to start processing.
                   We&apos;ll automatically optimize every page for maximum
                   clarity.
                 </p>

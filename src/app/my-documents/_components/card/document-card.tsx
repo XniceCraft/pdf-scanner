@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 
 import type { Document as DocumentType } from "@/types/document";
 import type { Updater } from "use-mutative";
+import { useOpenCV } from "@/providers/opencv-provider";
 
 export function DocumentCard({
   doc,
@@ -42,6 +43,7 @@ export function DocumentCard({
     [doc.pages]
   );
 
+  const { cv, isLoading } = useOpenCV();
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
     try {
@@ -61,7 +63,12 @@ export function DocumentCard({
     const toastId = toast.loading(`Exporting "${doc.name}.pdf"`);
 
     try {
-      const blob = await documentService.exportToPdf(doc.id);
+      if (isLoading) {
+        toast.error("Please wait for OpenCV to load");
+        return;
+      }
+
+      const blob = await documentService.exportToPdf(cv, doc.id);
       if (!blob) {
         toast.error("Failed to export document");
         return;
@@ -79,7 +86,7 @@ export function DocumentCard({
       toast.dismiss(toastId);
       toast.error(`Failed to export "${doc.name}.pdf"`);
     }
-  }, [doc.id, doc.name]);
+  }, [cv, doc.id, doc.name, isLoading]);
 
   useEffect(() => {
     const img = imageRef.current;

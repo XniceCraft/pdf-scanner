@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback } from "react";
+import { useOpenCV } from "@/providers/opencv-provider";
 import { Button } from "@/components/ui/button";
 import { ChangeNameDialog } from "@/components/dialog/change-name-dialog";
 import { ChevronLeftIcon, DownloadIcon } from "lucide-react";
@@ -24,11 +25,17 @@ export function MenuBar({
 }: MenuBarProps) {
   const router = useRouter();
 
+  const { cv, isLoading } = useOpenCV();
   const handleExport = useCallback(async () => {
     const toastId = toast.loading(`Exporting "${documentName}.pdf"`);
 
     try {
-      const blob = await documentService.exportToPdf(documentId);
+      if (isLoading) {
+        toast.error("Please wait for OpenCV to load");
+        return;
+      }
+
+      const blob = await documentService.exportToPdf(cv, documentId);
       if (!blob) {
         toast.error("Failed to export document");
         return;
@@ -48,7 +55,7 @@ export function MenuBar({
       toast.dismiss(toastId);
       toast.error(`Failed to export "${documentName}.pdf"`);
     }
-  }, [documentId, documentName]);
+  }, [cv, documentId, documentName, isLoading]);
 
   return (
     <nav className="flex justify-between items-center border-b border-border py-1">

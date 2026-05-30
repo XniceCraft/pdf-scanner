@@ -3,10 +3,12 @@ import { useEffect, useMemo, useRef } from "react";
 
 export function PageCard({
   documentId,
+  pageId,
   thumbnail,
   index,
 }: {
   documentId: number;
+  pageId: number;
   thumbnail: Blob;
   index: number;
 }) {
@@ -25,7 +27,10 @@ export function PageCard({
 
   return (
     <Link
-      href={{ pathname: "/documents/edit", query: { id: documentId } }}
+      href={{
+        pathname: "/documents/edit",
+        query: { id: documentId, page: pageId },
+      }}
       className="relative"
     >
       <img
