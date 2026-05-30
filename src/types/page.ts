@@ -1,16 +1,15 @@
 import type { Edit } from "@/types/edit";
 
 export interface SourceImage {
-  source: Blob;
-  width: number;
-  height: number;
+  original: Blob;
+  large: Blob; // Width maxed at 1000px
 }
 
 export interface EditedImage {
-  small: Blob;
-  medium: Blob;
-  large: Blob;
-  thumbnail: Blob;
+  // Only used for previewing the edit result like crop, not adjustment sliders
+  small: Blob; // Width maxed at 200px
+  large: Blob; // Width maxed at 1000px
+  // For more information, see image service
 }
 
 export interface Page {

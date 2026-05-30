@@ -1,25 +1,19 @@
 "use client";
 
 import { useDebounceCallback } from "@/hooks/use-debounce-callback";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useOpenCV } from "@/providers/opencv-provider";
 import { useForm } from "react-hook-form";
-import { AdjustmentForm } from "../form/adjustment-form";
-import { Button } from "@/components/ui/button";
-import { CropForm } from "../form/crop-form";
-import { CropIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { rawReturn } from "mutative";
 import { upsertEditSchema } from "@/lib/validations/edit";
 import { zodResolver } from "@hookform/resolvers/zod";
+import imageService from "@/lib/services/image";
 import pageService from "@/lib/services/page";
 import transformService from "@/lib/services/transform";
 
 import type { z } from "zod/mini";
-import type { Document as DocumentType } from "@/types/document";
-import type { Page } from "@/types/page";
-import type { Updater } from "use-mutative";
 import type { Edit } from "@/types/edit";
+import type { EditedImage } from "@/types/page";
+import { ControlSection } from "./control-section";
 
 const DEFAULT_EDIT_VALUES: Edit = {
   preset: "original",
@@ -36,26 +30,44 @@ const DEFAULT_EDIT_VALUES: Edit = {
 };
 
 export function EditorSection({
-  page,
-  documentAction,
+  pageId,
+  pageEdit,
+  pageSourceImage,
+  pageEditedImage,
+  handleUpdateEdit,
+  handleUpdateEditedImage,
 }: {
-  documentAction: Updater<DocumentType<true> | null>;
-  page: Page;
+  pageId: number;
+  pageSourceImage: Blob;
+  pageEditedImage: Blob;
+  pageEdit: Edit;
+  handleUpdateEdit: (edit: Edit) => void;
+  handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
-  const [editingField, setEditingField] = useState<"crop" | "adjustment">(
-    "adjustment"
-  );
 
   const { cv, isLoading: cvLoading } = useOpenCV();
-  const { control, subscribe, reset } = useForm<
+  const { control, subscribe, reset, getValues } = useForm<
     z.infer<typeof upsertEditSchema>
   >({
     defaultValues: DEFAULT_EDIT_VALUES,
     resolver: zodResolver(upsertEditSchema),
-    values: page.edit,
+    values: pageEdit,
   });
+
+  const handleUpdateBitmap = useCallback(
+    async (useEdited?: boolean) => {
+      if (!canvasRef.current) return;
+
+      const bitmap = await createImageBitmap(
+        useEdited ? pageEditedImage : pageSourceImage
+      );
+      bitmapRef.current?.close();
+      bitmapRef.current = bitmap;
+    },
+    [pageEditedImage, pageSourceImage]
+  );
 
   const debouncedCallback = useDebounceCallback(
     async (values: z.infer<typeof upsertEditSchema>) => {
@@ -68,32 +80,41 @@ export function EditorSection({
         values
       );
 
-      documentAction((prev) => {
-        if (!prev) return rawReturn(undefined);
-
-        const targetPage = prev.pages.find((p) => p.id === page.id);
-        if (!targetPage) return rawReturn(undefined);
-
-        targetPage.edit = values;
-      });
-      await pageService.updateEdit(page.id, values);
+      handleUpdateEdit(values);
+      await pageService.updateEdit(pageId, values);
     },
     500
   );
 
   const handleReset = useCallback(async () => {
-    const editedImage = await pageService.resetEdit(page.id);
-    documentAction((prev) => {
-      if (!prev) return rawReturn(undefined);
+    const editedImage =
+      await imageService.generateEditedImageFromLarge(pageSourceImage);
+    await pageService.resetEdit(pageId, editedImage);
+    handleUpdateEditedImage(editedImage);
 
-      const targetPage = prev.pages.find((p) => p.id === page.id);
-      if (!targetPage) return rawReturn(undefined);
-
-      targetPage.editedImage = editedImage!;
-    });
+    handleUpdateEdit(DEFAULT_EDIT_VALUES);
     reset(DEFAULT_EDIT_VALUES);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id, reset]);
+
+    await handleUpdateBitmap();
+
+    if (!bitmapRef.current || !canvasRef.current || cvLoading) return;
+
+    transformService.renderToCanvas(
+      cv,
+      bitmapRef.current,
+      canvasRef.current,
+      DEFAULT_EDIT_VALUES
+    );
+  }, [
+    pageSourceImage,
+    reset,
+    cv,
+    cvLoading,
+    pageId,
+    handleUpdateBitmap,
+    handleUpdateEditedImage,
+    handleUpdateEdit,
+  ]);
 
   useEffect(() => {
     const cleanupSubscribe = subscribe({
@@ -107,26 +128,24 @@ export function EditorSection({
   }, [subscribe, debouncedCallback]);
 
   useEffect(() => {
-    let bm: ImageBitmap | undefined;
+    async function load() {
+      await handleUpdateBitmap(getValues().perspectiveCrop.enabled);
 
-    async function showPreview() {
-      if (!canvasRef.current) return;
-
-      bm = await createImageBitmap(page.editedImage.large);
-      bitmapRef.current?.close();
-      bitmapRef.current = bm;
-
-      if (!cvLoading)
-        transformService.renderToCanvas(cv, bm, canvasRef.current, page.edit);
+      if (bitmapRef.current && canvasRef.current && !cvLoading) {
+        transformService.renderToCanvas(
+          cv,
+          bitmapRef.current,
+          canvasRef.current,
+          pageEdit
+        );
+      }
     }
 
-    showPreview();
-    return () => {
-      if (bm) bm.close();
-      bitmapRef.current?.close();
-    };
+    load();
+
+    return () => bitmapRef.current?.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.id, page.editedImage.large, cvLoading]);
+  }, [pageId, cvLoading]);
 
   return (
     <div className="flex flex-row overflow-hidden h-full bg-neutral-900">
@@ -137,45 +156,14 @@ export function EditorSection({
         ></canvas>
       </div>
 
-      <aside className="flex-col items-center hidden gap-3 lg:flex p-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={handleReset}
-        >
-          <RotateCcwIcon />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() =>
-            setEditingField((prev) => (prev === "crop" ? "adjustment" : "crop"))
-          }
-        >
-          {editingField === "crop" ? <SlidersHorizontalIcon /> : <CropIcon />}
-        </Button>
-      </aside>
-      <ScrollArea
-        type="always"
-        className="w-80 bg-muted/50 border-l border-border flex-col p-6 hidden lg:flex"
-      >
-        <form className="space-y-4 flex-1">
-          {editingField === "adjustment" && (
-            <AdjustmentForm control={control} />
-          )}
-          {editingField === "crop" && (
-            <CropForm
-              pageId={page.id}
-              control={control}
-              documentAction={documentAction}
-              bitmapRef={bitmapRef}
-              canvasRef={canvasRef}
-            />
-          )}
-        </form>
-      </ScrollArea>
+      <ControlSection
+        pageId={pageId}
+        control={control}
+        bitmapRef={bitmapRef}
+        handleReset={handleReset}
+        handleUpdateEditedImage={handleUpdateEditedImage}
+        handleUpdateBitmap={handleUpdateBitmap}
+      />
     </div>
   );
 }

@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutative } from "use-mutative";
-import { useEffect, useState } from "react";
+import {
+  type Dispatch,
+  memo,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { rawReturn } from "mutative";
 import { notFound, useSearchParams } from "next/navigation";
 import { DeletePageButton } from "./button/delete-page-button";
@@ -13,14 +21,27 @@ import { PageCard } from "./card/page-card";
 import documentService from "@/lib/services/document";
 
 import type { Document as DocumentType } from "@/types/document";
+import type { Edit } from "@/types/edit";
+import type { EditedImage } from "@/types/page";
+
+const MenuBarMemo = memo(MenuBar);
+const PageCardMemo = memo(PageCard);
 
 export function Content() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
 
+  const editBufferRef = useRef<{
+    edit: Edit | null;
+    editedImage: EditedImage | null;
+  }>({
+    edit: null,
+    editedImage: null,
+  });
+
   const [activePage, setActivePage] = useState<number>(0);
-  const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +59,36 @@ export function Content() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const handleUpdateEdit = useCallback((edit: Edit) => {
+    editBufferRef.current.edit = edit;
+  }, []);
+
+  const handleUpdateEditedImage = useCallback((editedImage: EditedImage) => {
+    editBufferRef.current.editedImage = editedImage;
+  }, []);
+
+  const setCurrentPage = useCallback(
+    (pageIndex: number) => {
+      setDoc((prevDocument) => {
+        if (!prevDocument) return rawReturn(undefined);
+
+        if (editBufferRef.current.edit)
+          prevDocument.pages[activePage].edit = editBufferRef.current.edit;
+
+        if (editBufferRef.current.editedImage)
+          prevDocument.pages[activePage].editedImage =
+            editBufferRef.current.editedImage;
+        editBufferRef.current = {
+          edit: null,
+          editedImage: null,
+        };
+      });
+
+      setActivePage(pageIndex);
+    },
+    [activePage, setDoc]
+  ) as Dispatch<SetStateAction<number>>;
+
   if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
@@ -50,22 +101,29 @@ export function Content() {
 
   return (
     <>
-      <MenuBar
+      <MenuBarMemo
         documentId={doc.id}
         documentName={doc.name}
         documentUpdater={setDoc}
       />
-      <EditorSection documentAction={setDoc} page={doc.pages[activePage]} />
+      <EditorSection
+        pageId={doc.pages[activePage].id}
+        pageEdit={doc.pages[activePage].edit}
+        pageSourceImage={doc.pages[activePage].sourceImage.large}
+        pageEditedImage={doc.pages[activePage].editedImage.large}
+        handleUpdateEdit={handleUpdateEdit}
+        handleUpdateEditedImage={handleUpdateEditedImage}
+      />
       <aside className="bg-muted/30 border-r border-border z-40 hidden md:block">
         <div className="flex items-center justify-between mb-2 px-3 pt-3">
           <span className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-            {doc.pages?.length} Pages
+            {doc.pages.length} Pages
           </span>
           <div className="flex gap-3">
             <DeletePageButton
               pageId={doc.pages[activePage].id}
               documentAction={setDoc}
-              setActivePage={setActivePage}
+              setActivePage={setCurrentPage}
             />
             <NewPageButton documentId={doc.id} documentAction={setDoc} />
           </div>
@@ -73,12 +131,12 @@ export function Content() {
         {doc.pages && (
           <div className="flex gap-1 px-1 pb-1">
             {doc.pages.map((page, index) => (
-              <PageCard
+              <PageCardMemo
                 key={page.id}
                 index={index}
                 blob={page.editedImage.small}
                 active={activePage === index}
-                onClick={setActivePage}
+                onClick={setCurrentPage}
               />
             ))}
           </div>

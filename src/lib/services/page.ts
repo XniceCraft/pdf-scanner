@@ -43,17 +43,17 @@ class PageService {
   }
 
   async create(data: CreatePageInput) {
-    const { width, height } = await imageService.getImageDimensions(data.image);
-    const sourceImage: SourceImage = {
-      width,
-      height,
-      source: data.image,
-    };
-    const editedImage = await imageService.generateEditedImage(
-      data.image,
-      width,
-      height
+    const largeOriginalImage = await imageService.generateOriginalThumbnail(
+      data.image
     );
+
+    const sourceImage: SourceImage = {
+      original: data.image,
+      large: largeOriginalImage,
+    };
+
+    const editedImage =
+      await imageService.generateEditedImageFromLarge(largeOriginalImage);
 
     const id = await db.pages.add({
       documentId: data.documentId,
@@ -77,27 +77,23 @@ class PageService {
   }
 
   async createMany(data: BulkCreatePageInput) {
-    const dimensions = await imageService.getImageDimensionsBatch(data.images);
-
-    const sourceImages: SourceImage[] = data.images.map((file, index) => ({
-      source: file,
-      width: dimensions[index].width,
-      height: dimensions[index].height,
-    }));
+    const largeOriginalImages = await Promise.all(
+      data.images.map((img) => imageService.generateOriginalThumbnail(img))
+    );
 
     const editedImages = await Promise.all(
-      data.images.map((img, i) =>
-        imageService.generateEditedImage(
-          img,
-          dimensions[i].width,
-          dimensions[i].height
-        )
+      largeOriginalImages.map((img) =>
+        imageService.generateEditedImageFromLarge(img)
       )
     );
+
     return db.pages.bulkAdd(
       data.images.map((_, index) => ({
         documentId: data.documentId,
-        sourceImage: sourceImages[index],
+        sourceImage: {
+          original: data.images[index],
+          large: largeOriginalImages[index],
+        },
         editedImage: editedImages[index],
         edit: {
           preset: "original",
@@ -133,46 +129,38 @@ class PageService {
   }
 
   async updateEdit(id: number, data: UpsertEditInput) {
-    return await db.transaction("rw", db.pages, async () => {
-      const page = await db.pages.get(id);
-      if (!page) return;
-
-      await db.pages.update(id, {
-        edit: { ...page.edit, ...data },
-      });
-    });
-  }
-
-  async resetEdit(id: number) {
     const page = await db.pages.get(id);
     if (!page) return;
 
-    const editedImage = await imageService.generateEditedImage(
-      page.sourceImage.source,
-      page.sourceImage.width,
-      page.sourceImage.height
-    );
-
-    await db.transaction("rw", db.pages, async () => {
-      await db.pages.update(id, {
-        editedImage,
-        edit: {
-          preset: "original",
-          rotation: 0,
-          perspectiveCrop: { enabled: false },
-          brightness: 0,
-          contrast: 0,
-          temperature: 0,
-          tint: 0,
-          highlight: 0,
-          shadow: 0,
-          white: 0,
-          black: 0,
-        },
-      });
+    await db.pages.update(id, {
+      edit: { ...page.edit, ...data },
     });
+  }
 
-    return editedImage;
+  async resetEdit(id: number, editedImage?: EditedImage) {
+    const page = await db.pages.get(id);
+    if (!page) return;
+
+    const newEditedImage =
+      editedImage ??
+      (await imageService.generateEditedImageFromLarge(page.sourceImage.large));
+
+    await db.pages.update(id, {
+      editedImage: newEditedImage,
+      edit: {
+        preset: "original",
+        rotation: 0,
+        perspectiveCrop: { enabled: false },
+        brightness: 0,
+        contrast: 0,
+        temperature: 0,
+        tint: 0,
+        highlight: 0,
+        shadow: 0,
+        white: 0,
+        black: 0,
+      },
+    });
   }
 
   async delete(id: number) {

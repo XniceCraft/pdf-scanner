@@ -36,8 +36,8 @@ export function DocumentCard({
   const imageRef = useRef<HTMLImageElement>(null);
   const src = useMemo(
     () =>
-      doc.pages?.[0]
-        ? URL.createObjectURL(doc.pages?.[0].editedImage.thumbnail)
+      doc.pages?.[0]?.editedImage?.large
+        ? URL.createObjectURL(doc.pages[0].editedImage.large)
         : undefined,
     [doc.pages]
   );

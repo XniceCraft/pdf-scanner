@@ -2,12 +2,10 @@ import type { EditedImage } from "@/types/page";
 
 const DEFAULT_QUALITY = 0.85;
 const OUTPUT_FORMAT = "image/webp";
-type ImagePreset = "thumbnail" | "small" | "medium" | "large";
+type ImagePreset = "small" | "large";
 
 const PRESET_WIDTHS: Record<ImagePreset, number> = {
-  thumbnail: 156,
   small: 500,
-  medium: 750,
   large: 1000,
 };
 
@@ -88,16 +86,33 @@ class ImageService {
     height: number
   ): Promise<EditedImage> {
     return Promise.all([
-      this.resize(source, width, height, "thumbnail"),
       this.resize(source, width, height, "small"),
-      this.resize(source, width, height, "medium"),
       this.resize(source, width, height, "large"),
-    ]).then(([thumbnail, small, medium, large]) => ({
-      thumbnail,
+    ]).then(([small, large]) => ({
       small,
-      medium,
       large,
     }));
+  }
+
+  async generateEditedImageFromLarge(largeImage: Blob) {
+    const largeImageDimensions = await this.getImageDimensions(largeImage);
+
+    return await this.generateEditedImage(
+      largeImage,
+      largeImageDimensions.width,
+      largeImageDimensions.height
+    );
+  }
+
+  async generateOriginalThumbnail(originalImage: Blob) {
+    const originalDimensions = await this.getImageDimensions(originalImage);
+
+    return await this.resize(
+      originalImage,
+      originalDimensions.width,
+      originalDimensions.height,
+      "large"
+    );
   }
 }
 

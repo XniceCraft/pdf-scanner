@@ -39,7 +39,7 @@ export function MenuBar() {
         "updatedAt-asc",
         "createdAt-desc",
         "createdAt-asc",
-      ]).withDefault("updatedAt-desc"),
+      ]).withDefault("updatedAt-asc"),
     },
     {
       history: "push",
@@ -86,10 +86,10 @@ export function MenuBar() {
           <SelectGroup>
             <SelectItem value="name-asc">Name - Ascending</SelectItem>
             <SelectItem value="name-desc">Name - Descending</SelectItem>
-            <SelectItem value="updatedAt-desc">Recently Updated</SelectItem>
-            <SelectItem value="updatedAt-asc">Oldest Updated</SelectItem>
-            <SelectItem value="createdAt-desc">Newest Created</SelectItem>
-            <SelectItem value="createdAt-asc">Oldest Created</SelectItem>
+            <SelectItem value="updatedAt-asc">Recently Updated</SelectItem>
+            <SelectItem value="updatedAt-desc">Oldest Updated</SelectItem>
+            <SelectItem value="createdAt-asc">Newest Created</SelectItem>
+            <SelectItem value="createdAt-desc">Oldest Created</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

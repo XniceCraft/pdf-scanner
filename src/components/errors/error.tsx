@@ -22,7 +22,10 @@ export function ErrorPage({
       <div className="relative mb-8">
         <div className="absolute inset-0 rounded-full bg-destructive/20 blur-2xl scale-150 animate-pulse" />
         <div className="relative w-24 h-24 bg-destructive/10 border border-destructive/30 rounded-2xl flex items-center justify-center shadow-lg shadow-destructive/10">
-          <AlertTriangle className="w-12 h-12 text-destructive" strokeWidth={1.5} />
+          <AlertTriangle
+            className="w-12 h-12 text-destructive"
+            strokeWidth={1.5}
+          />
         </div>
       </div>
 
@@ -65,7 +68,7 @@ export function ErrorPage({
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
       >
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] opacity-[0.03] bg-[linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] bg-size-[40px_40px]" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 opacity-[0.03] bg-[linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] bg-size-[40px_40px]" />
       </div>
     </div>
   );

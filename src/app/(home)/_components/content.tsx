@@ -28,14 +28,14 @@ import {
 } from "@dnd-kit/sortable";
 import { SortableFileItemField } from "./field/sortable-file-item-field";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { imageValidation } from "@/lib/validations/image";
+import { multipleImageValidation } from "@/lib/validations/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod/mini";
 import toast from "react-hot-toast";
 import documentService from "@/lib/services/document";
 
 const formSchema = z.object({
-  images: imageValidation(),
+  images: multipleImageValidation,
 });
 
 export function Content() {

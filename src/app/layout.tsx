@@ -6,6 +6,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { Metadata } from "next";
+import Script from "next/script";
 
 const outfit = Outfit({
   fallback: ["sans-serif"],
@@ -50,6 +51,13 @@ export default function RootLayout({
         className={`${outfit.variable} h-full dark`}
         suppressHydrationWarning
       >
+        <head>
+          <Script
+            src="//unpkg.com/react-scan/dist/auto.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        </head>
         <body
           className="font-sans antialiased min-h-full flex flex-col"
           suppressHydrationWarning

@@ -1,18 +1,18 @@
 import { z } from "zod/mini";
-import { imageValidation } from "./image";
+import { imageValidation, multipleImageValidation } from "./image";
 
 export const createPageSchema = z.object({
   documentId: z.int().check(z.gte(1, "Document ID must be at least 1.")),
-  image: z.instanceof(File),
+  image: imageValidation,
 });
 
 export const bulkCreatePageSchema = z.object({
   documentId: z.int().check(z.gte(1, "Document ID must be at least 1.")),
-  images: imageValidation(),
+  images: multipleImageValidation,
 });
 
 export const updatePageImageSchema = z.object({
-  image: z.instanceof(Blob),
+  image: imageValidation,
 });
 
 export type CreatePageInput = z.infer<typeof createPageSchema>;

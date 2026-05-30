@@ -57,7 +57,7 @@ export function Content() {
             <PageCard
               key={page.id}
               documentId={doc.id}
-              thumbnail={page.editedImage.thumbnail}
+              thumbnail={page.editedImage.small}
               index={index}
             />
           ))

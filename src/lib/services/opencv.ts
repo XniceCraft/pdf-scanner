@@ -1,22 +1,14 @@
 import type { OpenCV } from "@opencvjs/web";
 import type { PerspectiveCrop } from "@/types/edit";
 
-const A4_WIDTH = 2480;
-const A4_HEIGHT = 3508;
-
 class OpenCVService {
-  calculatePerspective(
-    cv: typeof OpenCV,
-    image: ImageBitmap,
-    canvas: HTMLCanvasElement
-  ): PerspectiveCrop {
+  calculatePerspective(cv: typeof OpenCV, image: ImageBitmap): PerspectiveCrop {
     const inputCanvas = new OffscreenCanvas(image.width, image.height);
     const ctx = inputCanvas.getContext("2d")!;
     ctx.drawImage(image, 0, 0);
     const imageData = ctx.getImageData(0, 0, image.width, image.height);
 
     const src = cv.matFromImageData(imageData);
-    const output = new cv.Mat();
 
     const grayWhite = this.preprocessWhite(cv, src);
     const contours =
@@ -24,28 +16,7 @@ class OpenCVService {
       this.getContours(cv, this.preprocessHsvSaturation(cv, src));
     grayWhite.delete();
 
-    if (contours) {
-      const pts1 = cv.matFromArray(4, 1, cv.CV_32FC2, contours.flat());
-      const pts2 = cv.matFromArray(4, 1, cv.CV_32FC2, [
-        0,
-        0,
-        A4_WIDTH,
-        0,
-        0,
-        A4_HEIGHT,
-        A4_WIDTH,
-        A4_HEIGHT,
-      ]);
-
-      const matrix = cv.getPerspectiveTransform(pts1, pts2);
-      cv.warpPerspective(src, output, matrix, new cv.Size(A4_WIDTH, A4_HEIGHT));
-      [pts1, pts2, matrix].forEach((m) => m.delete());
-    } else {
-      src.copyTo(output);
-    }
-
-    cv.imshow(canvas, output);
-    [src, output].forEach((m) => m.delete());
+    src.delete();
 
     if (!contours) return { enabled: false };
 
