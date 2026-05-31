@@ -5,7 +5,7 @@ import { CropIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CropForm } from "../form/crop-form";
 import { AdjustmentForm } from "../form/adjustment-form";
-import { type RefObject, useState } from "react";
+import { useState } from "react";
 
 import type { Control } from "react-hook-form";
 import type { Edit } from "@/types/edit";
@@ -14,21 +14,20 @@ import type { EditedImage } from "@/types/page";
 export function ControlSection({
   pageId,
   control,
-  bitmapRef,
+  sourceImage,
   handleReset,
   handleUpdateEditedImage,
-  handleUpdateBitmap,
+  editingField,
+  handleChangeEditingField,
 }: {
   pageId: number;
   control: Control<Edit>;
-  bitmapRef: RefObject<ImageBitmap | null>;
+  sourceImage: Blob;
   handleReset: () => Promise<void>;
   handleUpdateEditedImage: (editedImage: EditedImage) => void;
-  handleUpdateBitmap: (cropEnabled?: boolean) => Promise<void>;
+  editingField: "crop" | "adjustment";
+  handleChangeEditingField: (field: "crop" | "adjustment") => Promise<void>;
 }) {
-  const [editingField, setEditingField] = useState<"crop" | "adjustment">(
-    "adjustment"
-  );
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   return (
@@ -49,7 +48,9 @@ export function ControlSection({
           size="icon"
           disabled={isProcessing}
           onClick={() =>
-            setEditingField((prev) => (prev === "crop" ? "adjustment" : "crop"))
+            handleChangeEditingField(
+              editingField === "crop" ? "adjustment" : "crop"
+            )
           }
         >
           {editingField === "crop" ? <SlidersHorizontalIcon /> : <CropIcon />}
@@ -68,10 +69,9 @@ export function ControlSection({
               pageId={pageId}
               control={control}
               handleUpdateEditedImage={handleUpdateEditedImage}
-              handleUpdateBitmap={handleUpdateBitmap}
               isProcessing={isProcessing}
               setIsProcessing={setIsProcessing}
-              bitmapRef={bitmapRef}
+              sourceImage={sourceImage}
             />
           )}
         </form>

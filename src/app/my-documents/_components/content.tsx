@@ -25,7 +25,7 @@ export function Content() {
         "updatedAt-asc",
         "createdAt-desc",
         "createdAt-asc",
-      ]).withDefault("name-asc"),
+      ]).withDefault("updatedAt-desc"),
     },
     { shallow: false }
   );

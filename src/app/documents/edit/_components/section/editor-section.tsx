@@ -1,11 +1,13 @@
 "use client";
 
 import { useDebounceCallback } from "@/hooks/use-debounce-callback";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useOpenCV } from "@/providers/opencv-provider";
 import { useForm } from "react-hook-form";
 import { upsertEditSchema } from "@/lib/validations/edit";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ControlSection } from "./control-section";
+import { CropOverlay } from "../overlay/crop-overlay";
 import imageService from "@/lib/services/image";
 import pageService from "@/lib/services/page";
 import transformService from "@/lib/services/transform";
@@ -13,7 +15,6 @@ import transformService from "@/lib/services/transform";
 import type { z } from "zod/mini";
 import type { Edit } from "@/types/edit";
 import type { EditedImage } from "@/types/page";
-import { ControlSection } from "./control-section";
 
 const DEFAULT_EDIT_VALUES: Edit = {
   preset: "original",
@@ -35,19 +36,23 @@ export function EditorSection({
   pageSourceImage,
   pageEditedImage,
   handleUpdateEdit,
-  handleUpdateEditedImage,
 }: {
   pageId: number;
   pageSourceImage: Blob;
   pageEditedImage: Blob;
   pageEdit: Edit;
   handleUpdateEdit: (edit: Edit) => void;
-  handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
+  const editedImageRef = useRef<Blob>(pageEditedImage);
 
   const { cv, isLoading: cvLoading } = useOpenCV();
+  const [isPreviewLoaded, setIsPreviewLoaded] = useState<boolean>(false);
+  const [editingField, setEditingField] = useState<"crop" | "adjustment">(
+    "adjustment"
+  );
+
   const { control, subscribe, reset, getValues } = useForm<
     z.infer<typeof upsertEditSchema>
   >({
@@ -58,15 +63,38 @@ export function EditorSection({
 
   const handleUpdateBitmap = useCallback(
     async (useEdited?: boolean) => {
-      if (!canvasRef.current) return;
-
       const bitmap = await createImageBitmap(
-        useEdited ? pageEditedImage : pageSourceImage
+        useEdited ? editedImageRef.current : pageSourceImage
       );
       bitmapRef.current?.close();
       bitmapRef.current = bitmap;
     },
-    [pageEditedImage, pageSourceImage]
+    [editedImageRef, pageSourceImage]
+  );
+
+  const handleUpdateEditedImage = useCallback((editedImage: EditedImage) => {
+    editedImageRef.current = editedImage.large;
+  }, []);
+
+  const handleChangeEditingField = useCallback(
+    async (field: "crop" | "adjustment") => {
+      setEditingField(field);
+      if (field === "adjustment") {
+        await handleUpdateBitmap(true);
+      } else {
+        await handleUpdateBitmap();
+      }
+
+      if (bitmapRef.current && canvasRef.current && !cvLoading) {
+        transformService.renderToCanvas(
+          cv,
+          bitmapRef.current,
+          canvasRef.current,
+          getValues()
+        );
+      }
+    },
+    [handleUpdateBitmap, cv, getValues, cvLoading]
   );
 
   const debouncedCallback = useDebounceCallback(
@@ -129,7 +157,7 @@ export function EditorSection({
 
   useEffect(() => {
     async function load() {
-      await handleUpdateBitmap(getValues().perspectiveCrop.enabled);
+      await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
 
       if (bitmapRef.current && canvasRef.current && !cvLoading) {
         transformService.renderToCanvas(
@@ -139,30 +167,39 @@ export function EditorSection({
           pageEdit
         );
       }
+
+      setIsPreviewLoaded(true);
     }
 
     load();
-
     return () => bitmapRef.current?.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId, cvLoading]);
 
   return (
     <div className="flex flex-row overflow-hidden h-full bg-neutral-900">
-      <div className="overflow-y-auto flex items-start justify-center w-full">
-        <canvas
-          ref={canvasRef}
-          className="relative w-full h-full object-contain"
-        ></canvas>
+      <div className="overflow-y-auto relative flex items-start justify-center w-full">
+        <canvas ref={canvasRef} className="w-full h-full object-contain" />
+        {isPreviewLoaded && (
+          <CropOverlay
+            canvasRef={canvasRef}
+            bitmapRef={bitmapRef}
+            initialCrop={pageEdit.perspectiveCrop}
+            enabled={editingField === "crop"}
+            onApply={() => {}}
+            onCancel={() => {}}
+          />
+        )}
       </div>
 
       <ControlSection
         pageId={pageId}
         control={control}
-        bitmapRef={bitmapRef}
+        sourceImage={pageSourceImage}
+        editingField={editingField}
+        handleChangeEditingField={handleChangeEditingField}
         handleReset={handleReset}
         handleUpdateEditedImage={handleUpdateEditedImage}
-        handleUpdateBitmap={handleUpdateBitmap}
       />
     </div>
   );

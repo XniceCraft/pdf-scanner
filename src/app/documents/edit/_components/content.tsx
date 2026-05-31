@@ -23,7 +23,6 @@ import documentService from "@/lib/services/document";
 
 import type { Document as DocumentType } from "@/types/document";
 import type { Edit } from "@/types/edit";
-import type { EditedImage } from "@/types/page";
 
 const MenuBarMemo = memo(MenuBar);
 const PageCardMemo = memo(PageCard);
@@ -35,13 +34,7 @@ export function Content() {
     page: parseAsInteger.withDefault(0),
   });
 
-  const editBufferRef = useRef<{
-    edit: Edit | null;
-    editedImage: EditedImage | null;
-  }>({
-    edit: null,
-    editedImage: null,
-  });
+  const editBufferRef = useRef<Edit | null>(null);
 
   const [activePage, setActivePage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -66,28 +59,18 @@ export function Content() {
   }, [documentId]);
 
   const handleUpdateEdit = useCallback((edit: Edit) => {
-    editBufferRef.current.edit = edit;
-  }, []);
-
-  const handleUpdateEditedImage = useCallback((editedImage: EditedImage) => {
-    editBufferRef.current.editedImage = editedImage;
+    editBufferRef.current = edit;
   }, []);
 
   const setCurrentPage = useCallback((pageIndex: number) => {
-    if (editBufferRef.current.edit || editBufferRef.current.editedImage)
+    if (editBufferRef.current)
       setDoc((prevDocument) => {
         if (!prevDocument) return rawReturn(undefined);
 
-        if (editBufferRef.current.edit)
-          prevDocument.pages[activePage].edit = editBufferRef.current.edit;
-
-        if (editBufferRef.current.editedImage)
-          prevDocument.pages[activePage].editedImage =
-            editBufferRef.current.editedImage;
-        editBufferRef.current = {
-          edit: null,
-          editedImage: null,
-        };
+        if (editBufferRef.current) {
+          prevDocument.pages[activePage].edit = editBufferRef.current;
+          editBufferRef.current = null;
+        }
       });
 
     setActivePage(pageIndex);
@@ -117,7 +100,6 @@ export function Content() {
         pageSourceImage={doc.pages[activePage].sourceImage.large}
         pageEditedImage={doc.pages[activePage].editedImage.large}
         handleUpdateEdit={handleUpdateEdit}
-        handleUpdateEditedImage={handleUpdateEditedImage}
       />
       <aside className="bg-muted/30 border-r border-border z-40 hidden md:block">
         <div className="flex items-center justify-between mb-2 px-3 pt-3">
