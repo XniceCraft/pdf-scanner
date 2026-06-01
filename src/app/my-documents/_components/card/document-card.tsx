@@ -62,10 +62,17 @@ export function DocumentCard({
     const img = imageRef.current;
     if (!img || !src) return;
 
-    const handleLoad = () => URL.revokeObjectURL(src);
+    let isDisposed = false;
+    const handleLoad = () => {
+      if (!isDisposed) URL.revokeObjectURL(src);
+    };
     img.addEventListener("load", handleLoad);
 
-    return () => img.removeEventListener("load", handleLoad);
+    return () => {
+      img.removeEventListener("load", handleLoad);
+      if (!isDisposed) URL.revokeObjectURL(src);
+      isDisposed = true;
+    };
   }, [src]);
 
   return (

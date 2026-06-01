@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button, LoadingButton } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,9 +34,11 @@ export function ChangeNameDialog({
   name: string;
 }) {
   const [showDialog, setShowDialog] = useState(false);
-  const { control, handleSubmit } = useForm<
-    z.infer<typeof upsertDocumentSchema>
-  >({
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<z.infer<typeof upsertDocumentSchema>>({
     defaultValues: { name },
     resolver: zodResolver(upsertDocumentSchema),
   });
@@ -87,9 +89,13 @@ export function ChangeNameDialog({
           />
         </form>
         <ResponsiveDialogFooter>
-          <Button form="change-name-form" type="submit">
+          <LoadingButton
+            form="change-name-form"
+            type="submit"
+            isLoading={isSubmitting}
+          >
             Save changes
-          </Button>
+          </LoadingButton>
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

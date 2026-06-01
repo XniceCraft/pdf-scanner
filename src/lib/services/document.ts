@@ -113,33 +113,36 @@ class DocumentService {
     const doc = new jsPDF();
 
     for (let i = 0; i < document.pages.length; i++) {
+      let sourceBitmap: ImageBitmap | null = null;
       const page = document.pages[i];
-      const sourceBitmap = await createImageBitmap(page.sourceImage.original);
-      const aspectRatio = sourceBitmap.width / sourceBitmap.height;
+      try {
+        sourceBitmap = await createImageBitmap(page.sourceImage.original);
+        const aspectRatio = sourceBitmap.width / sourceBitmap.height;
 
-      const pdfWidth = 210;
-      const pdfHeight = pdfWidth / aspectRatio;
+        const pdfWidth = 210;
+        const pdfHeight = pdfWidth / aspectRatio;
 
-      const x = 0;
-      const y = (297 - pdfHeight) / 2;
+        const x = 0;
+        const y = (297 - pdfHeight) / 2;
 
-      const buffer = await transformService.exportPage(
-        cv,
-        sourceBitmap,
-        page.edit
-      );
-      const arrayBuffer = await buffer.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      doc.addImage(bytes, "JPEG", x, y, pdfWidth, pdfHeight);
+        const buffer = await transformService.exportPage(
+          cv,
+          sourceBitmap,
+          page.edit
+        );
+        const arrayBuffer = await buffer.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        doc.addImage(bytes, "WEBP", x, y, pdfWidth, pdfHeight);
 
-      if (i !== document.pages.length - 1) {
-        doc.addPage();
+        if (i !== document.pages.length - 1) {
+          doc.addPage();
+        }
+      } finally {
+        sourceBitmap?.close();
       }
     }
 
     return doc.output("blob");
-    // TODO: Will implement after color filter
-    return undefined;
   }
 }
 

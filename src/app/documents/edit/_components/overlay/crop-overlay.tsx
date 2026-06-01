@@ -108,10 +108,13 @@ export function CropOverlay({
           pointsRef.current
         );
 
+        const { width, height } =
+          await imageService.getImageDimensions(warpedImage);
+
         const editedImage = await imageService.generateEditedImage(
           warpedImage,
-          bm.width,
-          bm.height
+          width,
+          height
         );
 
         await pageService.updateEditedImage(pageId, editedImage);

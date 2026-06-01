@@ -18,13 +18,12 @@ export function useExportPdf(
   const { cv, isLoading } = useOpenCV();
 
   const exportPdf = useCallback(async () => {
+    if (isExporting) return;
     const toastId = toast.loading(`Exporting "${documentName}.pdf"`);
 
     try {
-      if (isExporting) return;
-
       if (isLoading) {
-        setIsExporting(false);
+        toast.dismiss(toastId);
         toast.error("Please wait for OpenCV to load");
         return;
       }
@@ -33,6 +32,7 @@ export function useExportPdf(
       const blob = await documentService.exportToPdf(cv, documentId);
       if (!blob) {
         setIsExporting(false);
+        toast.dismiss(toastId);
         toast.error("Failed to export document");
         return;
       }
