@@ -172,5 +172,5 @@ class PageService {
   }
 }
 
-const service = new PageService();
-export default service;
+const pageService = new PageService();
+export default pageService;

@@ -5,26 +5,24 @@ import { CropIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CropForm } from "../form/crop-form";
 import { AdjustmentForm } from "../form/adjustment-form";
-import { useState } from "react";
+import { type RefObject, useState } from "react";
 
 import type { Control } from "react-hook-form";
 import type { Edit } from "@/types/edit";
-import type { EditedImage } from "@/types/page";
+import type { CropOverlayRef } from "@/types/components/crop-overlay";
 
 export function ControlSection({
-  pageId,
   control,
+  overlayRef,
   sourceImage,
   handleReset,
-  handleUpdateEditedImage,
   editingField,
   handleChangeEditingField,
 }: {
-  pageId: number;
   control: Control<Edit>;
+  overlayRef: RefObject<CropOverlayRef | null>;
   sourceImage: Blob;
   handleReset: () => Promise<void>;
-  handleUpdateEditedImage: (editedImage: EditedImage) => void;
   editingField: "crop" | "adjustment";
   handleChangeEditingField: (field: "crop" | "adjustment") => Promise<void>;
 }) {
@@ -66,12 +64,11 @@ export function ControlSection({
           )}
           {editingField === "crop" && (
             <CropForm
-              pageId={pageId}
-              control={control}
-              handleUpdateEditedImage={handleUpdateEditedImage}
+              overlayRef={overlayRef}
+              sourceImage={sourceImage}
               isProcessing={isProcessing}
               setIsProcessing={setIsProcessing}
-              sourceImage={sourceImage}
+              handleChangeEditingField={handleChangeEditingField}
             />
           )}
         </form>

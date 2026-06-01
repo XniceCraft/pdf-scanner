@@ -15,6 +15,7 @@ import transformService from "@/lib/services/transform";
 import type { z } from "zod/mini";
 import type { Edit } from "@/types/edit";
 import type { EditedImage } from "@/types/page";
+import type { CropOverlayRef } from "@/types/components/crop-overlay";
 
 const DEFAULT_EDIT_VALUES: Edit = {
   preset: "original",
@@ -36,15 +37,18 @@ export function EditorSection({
   pageSourceImage,
   pageEditedImage,
   handleUpdateEdit,
+  handleUpdateEditedImage: handleUpdateEditedImageParent,
 }: {
   pageId: number;
   pageSourceImage: Blob;
   pageEditedImage: Blob;
   pageEdit: Edit;
   handleUpdateEdit: (edit: Edit) => void;
+  handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
+  const overlayRef = useRef<CropOverlayRef | null>(null);
   const editedImageRef = useRef<Blob>(pageEditedImage);
 
   const { cv, isLoading: cvLoading } = useOpenCV();
@@ -72,9 +76,13 @@ export function EditorSection({
     [editedImageRef, pageSourceImage]
   );
 
-  const handleUpdateEditedImage = useCallback((editedImage: EditedImage) => {
-    editedImageRef.current = editedImage.large;
-  }, []);
+  const handleUpdateEditedImage = useCallback(
+    (editedImage: EditedImage) => {
+      editedImageRef.current = editedImage.large;
+      handleUpdateEditedImageParent(editedImage);
+    },
+    [handleUpdateEditedImageParent]
+  );
 
   const handleChangeEditingField = useCallback(
     async (field: "crop" | "adjustment") => {
@@ -156,7 +164,11 @@ export function EditorSection({
   }, [subscribe, debouncedCallback]);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
+      if (cancelled) return;
+
       await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
 
       if (bitmapRef.current && canvasRef.current && !cvLoading) {
@@ -172,7 +184,10 @@ export function EditorSection({
     }
 
     load();
-    return () => bitmapRef.current?.close();
+    return () => {
+      bitmapRef.current?.close();
+      cancelled = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId, cvLoading]);
 
@@ -182,24 +197,25 @@ export function EditorSection({
         <canvas ref={canvasRef} className="w-full h-full object-contain" />
         {isPreviewLoaded && (
           <CropOverlay
+            ref={overlayRef}
             canvasRef={canvasRef}
-            bitmapRef={bitmapRef}
+            pageId={pageId}
+            sourceImage={pageSourceImage}
+            control={control}
+            handleUpdateEditedImage={handleUpdateEditedImage}
             initialCrop={pageEdit.perspectiveCrop}
             enabled={editingField === "crop"}
-            onApply={() => {}}
-            onCancel={() => {}}
           />
         )}
       </div>
 
       <ControlSection
-        pageId={pageId}
         control={control}
+        overlayRef={overlayRef}
         sourceImage={pageSourceImage}
         editingField={editingField}
         handleChangeEditingField={handleChangeEditingField}
         handleReset={handleReset}
-        handleUpdateEditedImage={handleUpdateEditedImage}
       />
     </div>
   );

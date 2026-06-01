@@ -1,95 +1,114 @@
 "use client";
 
-import { useController, type Control } from "react-hook-form";
+import { useCallback, useState, type RefObject } from "react";
 import { useOpenCV } from "@/providers/opencv-provider";
-import { LoadingButton } from "@/components/ui/button";
-import imageService from "@/lib/services/image";
-import transformService from "@/lib/services/transform";
+import { Button, LoadingButton } from "@/components/ui/button";
 import opencvService from "@/lib/services/opencv";
-import pageService from "@/lib/services/page";
 
-import type { Edit } from "@/types/edit";
-import type { EditedImage } from "@/types/page";
+import type { CropOverlayRef } from "@/types/components/crop-overlay";
 
 interface CropFormProps {
-  pageId: number;
-  control: Control<Edit>;
+  overlayRef: RefObject<CropOverlayRef | null>;
   sourceImage: Blob;
   isProcessing: boolean;
   setIsProcessing: (isProcessing: boolean) => void;
-  handleUpdateEditedImage: (editedImage: EditedImage) => void;
+  handleChangeEditingField: (field: "crop" | "adjustment") => Promise<void>;
 }
 
 export function CropForm({
-  pageId,
-  control,
+  overlayRef,
   sourceImage,
   isProcessing,
   setIsProcessing,
-  handleUpdateEditedImage,
+  handleChangeEditingField,
 }: CropFormProps) {
   const { cv, isLoading: cvLoading } = useOpenCV();
-  const { field: perspectiveField } = useController({
-    control,
-    name: "perspectiveCrop",
-  });
-  const handleAutoCrop = async () => {
-    if (cvLoading || isProcessing) return;
+  const [isCropping, setIsCropping] = useState<boolean>(false);
+  const [isAutoCropping, setIsAutoCropping] = useState<boolean>(false);
+
+  const handleAutoCrop = useCallback(async () => {
+    if (cvLoading || isProcessing || isCropping) return;
 
     setIsProcessing(true);
+    setIsAutoCropping(true);
+    const bitmap = await createImageBitmap(sourceImage);
     try {
-      const bitmap = await createImageBitmap(sourceImage);
       const contour = opencvService.calculatePerspective(cv, bitmap);
-      if (!contour.enabled) {
-        bitmap.close();
-        return;
+      if (contour.enabled) {
+        overlayRef.current?.handleOnChange(contour.points);
       }
-
-      const warpedImage = await transformService.generateWarped(
-        cv,
-        bitmap,
-        contour.points
-      );
-
-      const editedImage = await imageService.generateEditedImage(
-        warpedImage,
-        bitmap.width,
-        bitmap.height
-      );
+    } finally {
       bitmap.close();
+      setIsProcessing(false);
+      setIsAutoCropping(false);
+    }
+    // eslint-disable-next-line
+  }, [cv, cvLoading, isProcessing, sourceImage, overlayRef]);
 
-      await pageService.updateEditedImage(pageId, editedImage);
-      handleUpdateEditedImage(editedImage);
-      perspectiveField.onChange(contour);
+  const handleApplyCrop = useCallback(async () => {
+    setIsProcessing(true);
+    setIsCropping(true);
+    try {
+      await overlayRef.current?.handleApply();
+      await handleChangeEditingField("adjustment");
     } finally {
       setIsProcessing(false);
+      setIsCropping(false);
     }
-  };
+    // eslint-disable-next-line
+  }, [overlayRef, handleChangeEditingField]);
+
+  const handleCancelCrop = useCallback(async () => {
+    if (isProcessing || cvLoading || isCropping) return;
+
+    setIsCropping(true);
+    try {
+      overlayRef.current?.handleCancel();
+    } finally {
+      setIsCropping(false);
+    }
+    await handleChangeEditingField("adjustment");
+    // eslint-disable-next-line
+  }, [overlayRef, handleChangeEditingField]);
 
   return (
     <>
-      <h2 className="uppercase text-xs text-muted-foreground font-bold tracking-wide">
-        Crop
-      </h2>
-      <div className="flex items-center relative">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="uppercase text-xs text-muted-foreground font-bold tracking-wide">
+          Crop
+        </h2>
         <LoadingButton
           type="button"
           size="sm"
           variant="outline"
           onClick={handleAutoCrop}
-          isLoading={isProcessing || cvLoading}
-        >
-          Apply
-        </LoadingButton>
-        <LoadingButton
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={handleAutoCrop}
-          isLoading={isProcessing || cvLoading}
+          isLoading={isAutoCropping}
+          disabled={isProcessing || cvLoading}
         >
           Auto
         </LoadingButton>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <LoadingButton
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleApplyCrop}
+          isLoading={isCropping}
+          disabled={isProcessing || cvLoading}
+        >
+          Apply
+        </LoadingButton>
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          onClick={handleCancelCrop}
+          disabled={isProcessing || cvLoading}
+        >
+          Cancel
+        </Button>
       </div>
     </>
   );

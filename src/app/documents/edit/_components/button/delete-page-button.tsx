@@ -39,6 +39,7 @@ export function DeletePageButton({
   const handleDeletePage = useCallback(async () => {
     setIsDeleting(true);
     try {
+      await pageService.delete(pageId);
       documentAction((draft) => {
         if (!draft) return;
         const index = draft.pages.findIndex((p) => p.id === pageId);
@@ -50,7 +51,6 @@ export function DeletePageButton({
           );
         }
       });
-      await pageService.delete(pageId);
     } finally {
       setIsDeleting(false);
       setShowDialog(false);

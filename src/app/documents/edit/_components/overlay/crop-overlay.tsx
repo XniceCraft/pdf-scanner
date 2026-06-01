@@ -1,15 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-
+import { useController } from "react-hook-form";
+import { useAsRef } from "@/hooks/use-as-ref";
+import { useOpenCV } from "@/providers/opencv-provider";
 import {
   getImageBounds,
   imageToDisplay,
   displayToImage,
 } from "@/lib/utils/crop-overlay";
+import transformService from "@/lib/services/transform";
+import imageService from "@/lib/services/image";
+import pageService from "@/lib/services/page";
 
 import type { RefObject } from "react";
-import type { PerspectiveCrop, Point } from "@/types/edit";
+import type { Edit, PerspectiveCrop, Point } from "@/types/edit";
+import type { Control } from "react-hook-form";
+import type { CropOverlayRef } from "@/types/components/crop-overlay";
+import type { EditedImage } from "@/types/page";
 
 type FourPoints = Extract<PerspectiveCrop, { enabled: true }>["points"];
 
@@ -31,25 +39,36 @@ function buildQuadString(dp: Point[]): string {
 }
 
 export function CropOverlay({
-  bitmapRef,
+  ref,
   canvasRef,
-  initialCrop,
+  pageId,
   enabled,
-  onApply,
-  onCancel,
+  sourceImage,
+  initialCrop,
+  control,
+  handleUpdateEditedImage,
 }: {
+  ref: RefObject<CropOverlayRef | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  bitmapRef: RefObject<ImageBitmap | null>;
-  initialCrop: PerspectiveCrop;
+  pageId: number;
   enabled: boolean;
-  onApply: (points: FourPoints) => void;
-  onCancel: () => void;
+  sourceImage: Blob;
+  initialCrop: PerspectiveCrop;
+  control: Control<Edit>;
+  handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
+  const { cv, isLoading: cvLoading } = useOpenCV();
+
+  const cvRef = useAsRef(cv);
+  const cvLoadingRef = useAsRef(cvLoading);
+
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIndex = useRef<number | null>(null);
+  const bitmapRef = useRef<ImageBitmap | null>(null);
 
   const pointsRef = useRef<FourPoints | null>(null);
   const displayPointsRef = useRef<Point[] | null>(null);
+  const defaultDisplayRef = useRef<Point[] | null>(null);
 
   const hitAreaRefs = useRef<(SVGCircleElement | null)[]>([
     null,
@@ -68,24 +87,94 @@ export function CropOverlay({
 
   const [displayPoints, setDisplayPoints] = useState<Point[] | null>(null);
 
+  const { field: perspectiveCrop } = useController({
+    control,
+    name: "perspectiveCrop",
+  });
+
   useEffect(() => {
+    ref.current = {
+      handleApply: async () => {
+        if (!pointsRef.current || cvLoadingRef.current) return;
+
+        const bm = bitmapRef.current;
+        if (!bm) return;
+
+        perspectiveCrop.onChange({ enabled: true, points: pointsRef.current });
+
+        const warpedImage = await transformService.generateWarped(
+          cvRef.current!,
+          bm,
+          pointsRef.current
+        );
+
+        const editedImage = await imageService.generateEditedImage(
+          warpedImage,
+          bm.width,
+          bm.height
+        );
+
+        await pageService.updateEditedImage(pageId, editedImage);
+        handleUpdateEditedImage(editedImage);
+      },
+
+      handleCancel: () => {
+        pointsRef.current = null;
+        displayPointsRef.current = defaultDisplayRef.current;
+        setDisplayPoints(defaultDisplayRef.current);
+        perspectiveCrop.onChange({ enabled: false });
+      },
+
+      handleOnChange: (points: FourPoints) => {
+        if (!displayPointsRef.current) return;
+
+        pointsRef.current = points;
+
+        const canvas = canvasRef.current;
+        const bm = bitmapRef.current;
+        if (!canvas || !bm) return;
+
+        const bounds = getImageBounds(canvas, bm);
+        const size = { width: bm.width, height: bm.height };
+
+        displayPointsRef.current = points.map((p) =>
+          imageToDisplay(p, size, bounds)
+        );
+        setDisplayPoints([...displayPointsRef.current]);
+      },
+    };
+
     const canvas = canvasRef.current;
-    const bm = bitmapRef.current;
-    if (!canvas || !bm) return;
+    if (!canvas) return;
 
-    const bounds = getImageBounds(canvas, bm);
-    const size = { width: bm.width, height: bm.height };
+    async function load() {
+      const bitmap = await createImageBitmap(sourceImage);
+      bitmapRef.current = bitmap;
 
-    const initial = initialCrop.enabled
-      ? initialCrop.points
-      : getDefaultPoints(bm);
-    const initialDisplay = initial.map((p) => imageToDisplay(p, size, bounds));
+      const bounds = getImageBounds(canvas!, bitmap);
+      const size = { width: bitmap.width, height: bitmap.height };
 
-    pointsRef.current = initial;
-    displayPointsRef.current = initialDisplay;
-    setDisplayPoints(initialDisplay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      const initial = initialCrop.enabled
+        ? initialCrop.points
+        : getDefaultPoints(bitmap);
+      const initialDisplay = initial.map((p) =>
+        imageToDisplay(p, size, bounds)
+      );
+
+      pointsRef.current = initial;
+      displayPointsRef.current = initialDisplay;
+      defaultDisplayRef.current = initialDisplay;
+      setDisplayPoints(initialDisplay);
+    }
+
+    load();
+
+    return () => {
+      bitmapRef.current?.close();
+      bitmapRef.current = null;
+    };
+    // eslint-disable-next-line
+  }, [pageId, sourceImage, initialCrop]);
 
   const handlePointerDown = useCallback(
     (index: number, e: React.PointerEvent<SVGCircleElement>) => {
@@ -133,34 +222,20 @@ export function CropOverlay({
       outlineRef.current?.setAttribute("points", quad);
       maskPolygonRef.current?.setAttribute("points", quad);
     },
-    [canvasRef, bitmapRef]
+    [canvasRef]
   );
 
   const handlePointerUp = useCallback(() => {
     if (draggingIndex.current === null) return;
     draggingIndex.current = null;
-
     if (displayPointsRef.current) {
       setDisplayPoints([...displayPointsRef.current]);
     }
   }, []);
 
-  const handleApply = useCallback(() => {
-    if (pointsRef.current) onApply(pointsRef.current);
-  }, [onApply]);
-
-  const handleCancel = useCallback(() => {
-    onCancel();
-    setDisplayPoints(null);
-    pointsRef.current = null;
-    displayPointsRef.current = null;
-  }, [onCancel]);
-
-  if (!displayPoints) return null;
+  if (!displayPoints || !enabled) return null;
 
   const quadPoints = buildQuadString(displayPoints);
-
-  if (!enabled) return null;
 
   return (
     <svg

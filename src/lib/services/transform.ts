@@ -81,16 +81,19 @@ class TransformService {
     const src = cv.matFromImageData(
       ctx.getImageData(0, 0, bitmap.width, bitmap.height)
     );
+
+    const warped = new cv.Mat();
     const output = new cv.Mat();
 
-    if (edit.perspectiveCrop.enabled) {
-      this.applyWarp(cv, output, src, edit.perspectiveCrop.points);
-    } else {
-      src.copyTo(output);
-    }
-    this.applyEdits(cv, output, edit, output);
-
     try {
+      if (edit.perspectiveCrop.enabled) {
+        this.applyWarp(cv, warped, src, edit.perspectiveCrop.points);
+      } else {
+        src.copyTo(warped);
+      }
+
+      this.applyEdits(cv, warped, edit, output);
+
       const out = document.createElement("canvas");
       out.width = bitmap.width;
       out.height = bitmap.height;
@@ -105,10 +108,10 @@ class TransformService {
       );
     } finally {
       src.delete();
+      warped.delete();
       output.delete();
     }
   }
-
   private applyWarp(
     cv: typeof OpenCV,
     warped: InstanceType<typeof cv.Mat>,

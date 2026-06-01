@@ -23,6 +23,8 @@ import documentService from "@/lib/services/document";
 
 import type { Document as DocumentType } from "@/types/document";
 import type { Edit } from "@/types/edit";
+import type { EditedImage } from "@/types/page";
+import { useAsRef } from "@/hooks/use-as-ref";
 
 const MenuBarMemo = memo(MenuBar);
 const PageCardMemo = memo(PageCard);
@@ -34,11 +36,13 @@ export function Content() {
     page: parseAsInteger.withDefault(0),
   });
 
-  const editBufferRef = useRef<Edit | null>(null);
-
   const [activePage, setActivePage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [doc, setDoc] = useMutative<DocumentType<true> | null>(null);
+
+  const editBufferRef = useRef<Edit | null>(null);
+  const editedImageBufferRef = useRef<EditedImage | null>(null);
+  const activePageRef = useAsRef(activePage);
 
   useEffect(() => {
     if (!documentId) return;
@@ -62,20 +66,33 @@ export function Content() {
     editBufferRef.current = edit;
   }, []);
 
-  const setCurrentPage = useCallback((pageIndex: number) => {
-    if (editBufferRef.current)
-      setDoc((prevDocument) => {
-        if (!prevDocument) return rawReturn(undefined);
+  const handleUpdateEditedImage = useCallback((editedImage: EditedImage) => {
+    editedImageBufferRef.current = editedImage;
+  }, []);
 
-        if (editBufferRef.current) {
-          prevDocument.pages[activePage].edit = editBufferRef.current;
-          editBufferRef.current = null;
-        }
-      });
+  const setCurrentPage = useCallback(
+    (pageIndex: number) => {
+      if (editBufferRef.current)
+        setDoc((prevDocument) => {
+          if (!prevDocument) return rawReturn(undefined);
 
-    setActivePage(pageIndex);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) as Dispatch<SetStateAction<number>>;
+          if (editBufferRef.current) {
+            prevDocument.pages[activePageRef.current].edit =
+              editBufferRef.current;
+            editBufferRef.current = null;
+          }
+
+          if (editedImageBufferRef.current) {
+            prevDocument.pages[activePageRef.current].editedImage =
+              editedImageBufferRef.current;
+            editedImageBufferRef.current = null;
+          }
+        });
+
+      setActivePage(pageIndex);
+    },
+    [setDoc]
+  ) as Dispatch<SetStateAction<number>>;
 
   if (isLoading) {
     return (
@@ -100,6 +117,7 @@ export function Content() {
         pageSourceImage={doc.pages[activePage].sourceImage.large}
         pageEditedImage={doc.pages[activePage].editedImage.large}
         handleUpdateEdit={handleUpdateEdit}
+        handleUpdateEditedImage={handleUpdateEditedImage}
       />
       <aside className="bg-muted/30 border-r border-border z-40 hidden md:block">
         <div className="flex items-center justify-between mb-2 px-3 pt-3">
