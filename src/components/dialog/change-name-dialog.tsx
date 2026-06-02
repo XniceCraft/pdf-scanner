@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Button, LoadingButton } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   ResponsiveDialog,
@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import type { Document as DocumentType } from "@/types/document";
 import type { Updater } from "use-mutative";
 import type { z } from "zod/mini";
+import { PencilIcon } from "lucide-react";
 
 export function ChangeNameDialog({
   documentUpdater,
@@ -57,7 +58,10 @@ export function ChangeNameDialog({
   return (
     <ResponsiveDialog open={showDialog} onOpenChange={setShowDialog}>
       <ResponsiveDialogTrigger asChild>
-        <Button variant="ghost">{name}</Button>
+        <Button variant="ghost">
+          {name}
+          <PencilIcon className="size-3!" />
+        </Button>
       </ResponsiveDialogTrigger>
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
@@ -72,7 +76,6 @@ export function ChangeNameDialog({
             control={control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel htmlFor="change-name-form-name">Name</FieldLabel>
                 <Input
                   {...field}
                   id="change-name-form-name"

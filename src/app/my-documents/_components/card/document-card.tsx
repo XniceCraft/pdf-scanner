@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { useExportPdf } from "@/hooks/utils/use-export-pdf";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button, LoadingButton } from "@/components/ui/button";
+import { Image } from "@/components/image";
 import { Spinner } from "@/components/ui/spinner";
 import {
   ResponsiveDialog,
@@ -32,16 +33,8 @@ export function DocumentCard({
   doc: DocumentType<true, true>;
   documentAction: Updater<DocumentType<true, true>[]>;
 }) {
-  const { exportPdf, isExporting } = useExportPdf(doc.id, doc.name);
   const [isDeleting, setIsDeleting] = useState(false);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const src = useMemo(
-    () =>
-      doc.pages?.[0]?.editedImage?.large
-        ? URL.createObjectURL(doc.pages[0].editedImage.large)
-        : undefined,
-    [doc.pages]
-  );
+  const { exportPdf, isExporting } = useExportPdf(doc.id, doc.name);
 
   const handleDelete = useCallback(async () => {
     setIsDeleting(true);
@@ -58,31 +51,13 @@ export function DocumentCard({
     }
   }, [doc.id, documentAction]);
 
-  useEffect(() => {
-    const img = imageRef.current;
-    if (!img || !src) return;
-
-    let isDisposed = false;
-    const handleLoad = () => {
-      if (!isDisposed) URL.revokeObjectURL(src);
-    };
-    img.addEventListener("load", handleLoad);
-
-    return () => {
-      img.removeEventListener("load", handleLoad);
-      if (!isDisposed) URL.revokeObjectURL(src);
-      isDisposed = true;
-    };
-  }, [src]);
-
   return (
     <div className="flex items-center justify-between w-full rounded overflow-hidden border pe-4 hover:bg-white/5 transition-colors">
       <Link href={`/documents?id=${doc.id}`} className="flex gap-3 flex-1">
-        <img
-          ref={imageRef}
-          src={src}
-          alt={doc.name}
+        <Image
+          src={doc.pages?.[0]?.editedImage?.large}
           className="aspect-square w-24 object-cover"
+          alt={doc.name}
         />
         <div className="ms-2 py-3 flex flex-col justify-between">
           <h5 className="font-medium text-lg">{doc.name}</h5>

@@ -1,15 +1,8 @@
 "use client";
 
 import { useMutative } from "use-mutative";
-import {
-  type Dispatch,
-  memo,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useAsRef } from "@/hooks/use-as-ref";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { parseAsInteger, useQueryStates } from "nuqs";
 import { notFound } from "next/navigation";
 import { rawReturn } from "mutative";
@@ -24,16 +17,15 @@ import documentService from "@/lib/services/document";
 import type { Document as DocumentType } from "@/types/document";
 import type { Edit } from "@/types/edit";
 import type { EditedImage } from "@/types/page";
-import { useAsRef } from "@/hooks/use-as-ref";
 
 const MenuBarMemo = memo(MenuBar);
 const PageCardMemo = memo(PageCard);
 const NewPageButtonMemo = memo(NewPageButton);
 
 export function Content() {
-  const [{ id: documentId, page: pageId }] = useQueryStates({
+  const [{ id: documentId, page: pageId }, setQuery] = useQueryStates({
     id: parseAsInteger.withDefault(0),
-    page: parseAsInteger.withDefault(0),
+    page: parseAsInteger,
   });
 
   const [activePage, setActivePage] = useState<number>(0);
@@ -43,6 +35,7 @@ export function Content() {
   const editBufferRef = useRef<Edit | null>(null);
   const editedImageBufferRef = useRef<EditedImage | null>(null);
   const activePageRef = useAsRef(activePage);
+  const documentRef = useAsRef(doc);
 
   useEffect(() => {
     if (!documentId) return;
@@ -59,6 +52,7 @@ export function Content() {
     }
 
     fetchData();
+    // pageId only needed for first pageLoad
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 
@@ -89,10 +83,15 @@ export function Content() {
           }
         });
 
+      setQuery(({ id }) => ({
+        id: id,
+        page: documentRef.current?.pages[pageIndex].id,
+      }));
       setActivePage(pageIndex);
     },
-    [setDoc]
-  ) as Dispatch<SetStateAction<number>>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   if (isLoading) {
     return (

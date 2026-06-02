@@ -1,9 +1,16 @@
 import type { Point } from "@/types/edit";
 
+interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export function getImageBounds(
   canvas: HTMLCanvasElement,
   bitmap: ImageBitmap
-): { width: number; height: number; x: number; y: number } {
+): Bounds {
   const rect = canvas.getBoundingClientRect();
   const canvasAspect = bitmap.width / bitmap.height;
   const containerAspect = rect.width / rect.height;
@@ -25,24 +32,16 @@ export function getImageBounds(
   };
 }
 
-export function imageToDisplay(
-  point: Point,
-  imageSize: { width: number; height: number },
-  bounds: { width: number; height: number; x: number; y: number }
-): Point {
+export function imageToDisplay(point: Point, bounds: Bounds): Point {
   return {
-    x: bounds.x + (point.x / imageSize.width) * bounds.width,
-    y: bounds.y + (point.y / imageSize.height) * bounds.height,
+    x: bounds.x + point.x * bounds.width,
+    y: bounds.y + point.y * bounds.height,
   };
 }
 
-export function displayToImage(
-  point: { x: number; y: number },
-  imageSize: { width: number; height: number },
-  bounds: { width: number; height: number; x: number; y: number }
-): { x: number; y: number } {
+export function displayToImage(point: Point, bounds: Bounds): Point {
   return {
-    x: Math.round(((point.x - bounds.x) / bounds.width) * imageSize.width),
-    y: Math.round(((point.y - bounds.y) / bounds.height) * imageSize.height),
+    x: (point.x - bounds.x) / bounds.width,
+    y: (point.y - bounds.y) / bounds.height,
   };
 }

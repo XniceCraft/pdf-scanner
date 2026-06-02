@@ -1,17 +1,11 @@
 import { cn } from "@/lib/utils";
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 interface CardProps {
   active?: boolean;
   blob: Blob;
   index: number;
-  onClick?: Dispatch<SetStateAction<number>>;
+  onClick?: (pageIndex: number) => void;
 }
 
 export function PageCard({ index, blob, active, onClick }: CardProps) {

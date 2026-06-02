@@ -1,8 +1,6 @@
-import type { Edit, PerspectiveCrop } from "@/types/edit";
+import type { Edit, PerspectiveCrop, Point } from "@/types/edit";
+import type { Size } from "@/types/size";
 import type { OpenCV } from "@opencvjs/web";
-
-const A4_WIDTH = 2480;
-const A4_HEIGHT = 3508;
 
 const MAX_COLOR_SHIFT = 25;
 const MAX_BRIGHTNESS = 100;
@@ -29,6 +27,7 @@ class TransformService {
     this.applyEdits(cv, src, edit, output);
 
     cv.imshow(canvas, output);
+
     output.delete();
     src.delete();
   }
@@ -49,11 +48,15 @@ class TransformService {
     const warped = new cv.Mat();
 
     try {
-      this.applyWarp(cv, warped, src, points);
+      const size = this.computeWarpSize(points, {
+        width: bitmap.width,
+        height: bitmap.height,
+      });
+      this.applyWarp(cv, warped, src, points, size);
 
       const out = document.createElement("canvas");
-      out.width = A4_WIDTH;
-      out.height = A4_HEIGHT;
+      out.width = size.width;
+      out.height = size.height;
       cv.imshow(out, warped);
 
       return await new Promise<Blob>((resolve, reject) =>
@@ -72,8 +75,9 @@ class TransformService {
   async exportPage(
     cv: typeof OpenCV,
     bitmap: ImageBitmap,
+    canvas: HTMLCanvasElement,
     edit: Edit
-  ): Promise<Blob> {
+  ) {
     const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
     const ctx = offscreen.getContext("2d")!;
     ctx.drawImage(bitmap, 0, 0);
@@ -84,59 +88,63 @@ class TransformService {
 
     const warped = new cv.Mat();
     const output = new cv.Mat();
+    let newSize: Size | null = null;
 
     try {
       if (edit.perspectiveCrop.enabled) {
-        this.applyWarp(cv, warped, src, edit.perspectiveCrop.points);
+        newSize = this.computeWarpSize(edit.perspectiveCrop.points, {
+          width: bitmap.width,
+          height: bitmap.height,
+        });
+
+        this.applyWarp(cv, warped, src, edit.perspectiveCrop.points, newSize);
       } else {
         src.copyTo(warped);
       }
-
       this.applyEdits(cv, warped, edit, output);
 
-      const out = document.createElement("canvas");
-      out.width = bitmap.width;
-      out.height = bitmap.height;
-      cv.imshow(out, output);
-
-      return await new Promise<Blob>((resolve, reject) =>
-        out.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
-          "image/webp",
-          1
-        )
-      );
+      canvas.width = newSize?.width ?? bitmap.width;
+      canvas.height = newSize?.height ?? bitmap.height;
+      cv.imshow(canvas, output);
     } finally {
       src.delete();
       warped.delete();
       output.delete();
     }
   }
+
   private applyWarp(
     cv: typeof OpenCV,
     warped: InstanceType<typeof cv.Mat>,
     src: InstanceType<typeof cv.Mat>,
-    points: Extract<PerspectiveCrop, { enabled: true }>["points"]
+    points: Extract<PerspectiveCrop, { enabled: true }>["points"],
+    size: Size
   ) {
     const pts1 = cv.matFromArray(
       4,
       1,
       cv.CV_32FC2,
-      points.flatMap(({ x, y }) => [x, y])
+      points.flatMap(({ x, y }) => [x * src.cols, y * src.rows])
     );
+
     const pts2 = cv.matFromArray(4, 1, cv.CV_32FC2, [
       0,
       0,
-      A4_WIDTH,
+      size.width,
       0,
       0,
-      A4_HEIGHT,
-      A4_WIDTH,
-      A4_HEIGHT,
+      size.height,
+      size.width,
+      size.height,
     ]);
 
     const matrix = cv.getPerspectiveTransform(pts1, pts2);
-    cv.warpPerspective(src, warped, matrix, new cv.Size(A4_WIDTH, A4_HEIGHT));
+    cv.warpPerspective(
+      src,
+      warped,
+      matrix,
+      new cv.Size(size.width, size.height)
+    );
 
     pts1.delete();
     pts2.delete();
@@ -230,6 +238,29 @@ class TransformService {
       lut[i] = Math.max(0, Math.min(255, i + shift));
     }
     return lut;
+  }
+
+  computeWarpSize(
+    points: Extract<PerspectiveCrop, { enabled: true }>["points"],
+    bitmapSize: Size
+  ): Size {
+    const [tl, tr, bl, br] = points;
+
+    const toPixel = (p: Point) => ({
+      x: p.x * bitmapSize.width,
+      y: p.y * bitmapSize.height,
+    });
+    const [tlp, trp, blp, brp] = [tl, tr, bl, br].map(toPixel);
+
+    const topWidth = Math.hypot(trp.x - tlp.x, trp.y - tlp.y);
+    const bottomWidth = Math.hypot(brp.x - blp.x, brp.y - blp.y);
+    const width = Math.round(Math.max(topWidth, bottomWidth));
+
+    const leftHeight = Math.hypot(blp.x - tlp.x, blp.y - tlp.y);
+    const rightHeight = Math.hypot(brp.x - trp.x, brp.y - trp.y);
+    const height = Math.round(Math.max(leftHeight, rightHeight));
+
+    return { width, height };
   }
 }
 

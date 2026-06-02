@@ -170,6 +170,7 @@ export function EditorSection({
       if (cancelled) return;
 
       await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
+      if (cancelled) return;
 
       if (bitmapRef.current && canvasRef.current && !cvLoading) {
         transformService.renderToCanvas(
@@ -186,7 +187,7 @@ export function EditorSection({
     load();
     return () => {
       bitmapRef.current?.close();
-      cancelled = false;
+      cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId, cvLoading]);

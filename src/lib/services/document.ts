@@ -107,17 +107,29 @@ class DocumentService {
   }
 
   async exportToPdf(cv: typeof OpenCV, id: number): Promise<Blob | undefined> {
-    const document = await this.findWithPages(id);
-    if (!document) return undefined;
+    const userDocument = await this.findWithPages(id);
+    if (!userDocument) return undefined;
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: "p",
+      unit: "mm",
+      format: "a4",
+    });
+    const canvas = document.createElement("canvas");
+    canvas.style.objectFit = "contain";
 
-    for (let i = 0; i < document.pages.length; i++) {
+    for (let i = 0; i < userDocument.pages.length; i++) {
       let sourceBitmap: ImageBitmap | null = null;
-      const page = document.pages[i];
+      const page = userDocument.pages[i];
       try {
         sourceBitmap = await createImageBitmap(page.sourceImage.original);
-        const aspectRatio = sourceBitmap.width / sourceBitmap.height;
+        const size = page.edit.perspectiveCrop.enabled
+          ? transformService.computeWarpSize(page.edit.perspectiveCrop.points, {
+              width: sourceBitmap.width,
+              height: sourceBitmap.height,
+            })
+          : { width: sourceBitmap.width, height: sourceBitmap.height };
+        const aspectRatio = size.width / size.height;
 
         const pdfWidth = 210;
         const pdfHeight = pdfWidth / aspectRatio;
@@ -125,16 +137,10 @@ class DocumentService {
         const x = 0;
         const y = (297 - pdfHeight) / 2;
 
-        const buffer = await transformService.exportPage(
-          cv,
-          sourceBitmap,
-          page.edit
-        );
-        const arrayBuffer = await buffer.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        doc.addImage(bytes, "WEBP", x, y, pdfWidth, pdfHeight);
+        await transformService.exportPage(cv, sourceBitmap, canvas, page.edit);
+        doc.addImage(canvas, "WEBP", x, y, pdfWidth, pdfHeight);
 
-        if (i !== document.pages.length - 1) {
+        if (i !== userDocument.pages.length - 1) {
           doc.addPage();
         }
       } finally {

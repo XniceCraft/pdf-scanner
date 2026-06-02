@@ -22,16 +22,12 @@ import type { EditedImage } from "@/types/page";
 type FourPoints = Extract<PerspectiveCrop, { enabled: true }>["points"];
 
 const HANDLE_RADIUS = 10;
-
-function getDefaultPoints(bitmap: ImageBitmap): FourPoints {
-  const { width, height } = bitmap;
-  return [
-    { x: 0, y: 0 },
-    { x: width, y: 0 },
-    { x: 0, y: height },
-    { x: width, y: height },
-  ];
-}
+const DEFAULT_POINTS: [Point, Point, Point, Point] = [
+  { x: 0, y: 0 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 1, y: 1 },
+];
 
 function buildQuadString(dp: Point[]): string {
   const [tl, tr, bl, br] = dp;
@@ -138,11 +134,8 @@ export function CropOverlay({
         if (!canvas || !bm) return;
 
         const bounds = getImageBounds(canvas, bm);
-        const size = { width: bm.width, height: bm.height };
 
-        displayPointsRef.current = points.map((p) =>
-          imageToDisplay(p, size, bounds)
-        );
+        displayPointsRef.current = points.map((p) => imageToDisplay(p, bounds));
         setDisplayPoints([...displayPointsRef.current]);
       },
     };
@@ -155,14 +148,9 @@ export function CropOverlay({
       bitmapRef.current = bitmap;
 
       const bounds = getImageBounds(canvas!, bitmap);
-      const size = { width: bitmap.width, height: bitmap.height };
 
-      const initial = initialCrop.enabled
-        ? initialCrop.points
-        : getDefaultPoints(bitmap);
-      const initialDisplay = initial.map((p) =>
-        imageToDisplay(p, size, bounds)
-      );
+      const initial = initialCrop.enabled ? initialCrop.points : DEFAULT_POINTS;
+      const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
 
       pointsRef.current = initial;
       displayPointsRef.current = initialDisplay;
@@ -197,20 +185,18 @@ export function CropOverlay({
 
       const svgRect = svgRef.current.getBoundingClientRect();
       const bounds = getImageBounds(canvas, bm);
-      const size = { width: bm.width, height: bm.height };
 
       const raw = displayToImage(
         { x: e.clientX - svgRect.left, y: e.clientY - svgRect.top },
-        size,
         bounds
       );
 
       const clamped = {
-        x: Math.max(0, Math.min(bm.width, raw.x)),
-        y: Math.max(0, Math.min(bm.height, raw.y)),
+        x: Math.max(0, Math.min(1, raw.x)),
+        y: Math.max(0, Math.min(1, raw.y)),
       };
 
-      const dp = imageToDisplay(clamped, size, bounds);
+      const dp = imageToDisplay(clamped, bounds);
       const idx = draggingIndex.current;
 
       pointsRef.current[idx] = clamped;

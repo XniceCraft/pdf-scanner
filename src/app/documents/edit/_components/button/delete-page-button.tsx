@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  type Dispatch,
-  type SetStateAction,
-  useCallback,
-  useState,
-} from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -31,7 +26,7 @@ export function DeletePageButton({
 }: {
   documentAction: Updater<DocumentType<true> | null>;
   pageId: number;
-  setActivePage: Dispatch<SetStateAction<number>>;
+  setActivePage: (pageIndex: number) => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
@@ -46,9 +41,7 @@ export function DeletePageButton({
 
         if (index !== -1) {
           draft.pages.splice(index, 1);
-          setActivePage((prev) =>
-            prev === index ? Math.max(0, index - 1) : prev
-          );
+          setActivePage(Math.max(0, index - 1));
         }
       });
     } finally {

@@ -2,9 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useExportPdf } from "@/hooks/utils/use-export-pdf";
-import { Button, LoadingButton } from "@/components/ui/button";
 import { ChangeNameDialog } from "@/components/dialog/change-name-dialog";
-import { ChevronLeftIcon, DownloadIcon } from "lucide-react";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarGroup,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 import type { Updater } from "use-mutative";
 import type { Document as DocumentType } from "@/types/document";
@@ -23,36 +30,38 @@ export function MenuBar({
   const router = useRouter();
   const { exportPdf, isExporting } = useExportPdf(documentId, documentName);
 
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  };
+
   return (
     <nav className="flex justify-between items-center border-b border-border py-1">
-      <div>
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={() => {
-            if (typeof window !== "undefined" && window.history.length > 1) {
-              router.back();
-            } else {
-              router.push("/");
-            }
-          }}
-        >
-          <ChevronLeftIcon /> Back
-        </Button>
-        <LoadingButton
-          variant="outline"
-          type="button"
-          className="bg-primary/20! border-primary/40!"
-          onClick={exportPdf}
-          isLoading={isExporting}
-          Icon={DownloadIcon}
-        />
-      </div>
+      <Menubar>
+        <MenubarMenu>
+          <MenubarTrigger>File</MenubarTrigger>
+          <MenubarContent>
+            <MenubarGroup>
+              <MenubarItem onClick={handleBack}>Back</MenubarItem>
+            </MenubarGroup>
+            <MenubarSeparator />
+            <MenubarGroup>
+              <MenubarItem onClick={exportPdf} disabled={isExporting}>
+                Export
+              </MenubarItem>
+            </MenubarGroup>
+          </MenubarContent>
+        </MenubarMenu>
+      </Menubar>
       <ChangeNameDialog
         documentUpdater={documentUpdater}
         documentId={documentId}
         name={documentName}
       />
+      <div></div>
     </nav>
   );
 }
