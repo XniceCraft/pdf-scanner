@@ -1,3 +1,4 @@
+import { Image } from "@/components/image";
 import { cn } from "@/lib/utils";
 import { useEffect, useMemo, useRef } from "react";
 
@@ -31,11 +32,10 @@ export function PageCard({ index, blob, active, onClick }: CardProps) {
       )}
       onClick={() => onClick?.(index)}
     >
-      <img
-        ref={imageRef}
+      <Image
+        src={blob}
         className="w-full h-full object-contain"
         alt={`Page ${index + 1} scan`}
-        src={src}
       />
       <p className="absolute top-0 left-0 bg-white/25 px-[0.2rem] py-[0.1rem] text-[0.6rem] text-white/60">
         {index + 1}

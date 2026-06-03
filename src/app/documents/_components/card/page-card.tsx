@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useEffect, useMemo, useRef } from "react";
+import { Image } from "@/components/image";
 
 export function PageCard({
   documentId,
@@ -12,19 +12,6 @@ export function PageCard({
   thumbnail: Blob;
   index: number;
 }) {
-  const imageRef = useRef<HTMLImageElement | null>(null);
-  const src = useMemo(() => URL.createObjectURL(thumbnail), [thumbnail]);
-
-  useEffect(() => {
-    const img = imageRef.current;
-    if (!img) return;
-
-    const handleLoad = () => URL.revokeObjectURL(src);
-    img.addEventListener("load", handleLoad);
-
-    return () => img.removeEventListener("load", handleLoad);
-  }, [src]);
-
   return (
     <Link
       href={{
@@ -33,9 +20,8 @@ export function PageCard({
       }}
       className="relative"
     >
-      <img
-        src={src}
-        ref={imageRef}
+      <Image
+        src={thumbnail}
         alt={`Page ${index + 1}`}
         className="w-full h-full object-cover"
       />
