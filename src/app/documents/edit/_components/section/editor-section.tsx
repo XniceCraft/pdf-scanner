@@ -15,7 +15,7 @@ import transformService from "@/lib/services/transform";
 import type { z } from "zod/mini";
 import type { Edit } from "@/types/edit";
 import type { EditedImage } from "@/types/page";
-import type { CropOverlayRef } from "@/types/components/crop-overlay";
+import type { CropOverlayControl } from "@/types/components/crop-overlay";
 
 const DEFAULT_EDIT_VALUES: Edit = {
   preset: "original",
@@ -48,11 +48,10 @@ export function EditorSection({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
-  const overlayRef = useRef<CropOverlayRef | null>(null);
+  const overlayRef = useRef<CropOverlayControl | null>(null);
   const editedImageRef = useRef<Blob>(pageEditedImage);
 
-  const { cv, isLoading: cvLoading } = useOpenCV();
-  const [isPreviewLoaded, setIsPreviewLoaded] = useState<boolean>(false);
+  const { cv } = useOpenCV();
   const [editingField, setEditingField] = useState<"crop" | "adjustment">(
     "adjustment"
   );
@@ -93,7 +92,7 @@ export function EditorSection({
         await handleUpdateBitmap();
       }
 
-      if (bitmapRef.current && canvasRef.current && !cvLoading) {
+      if (bitmapRef.current && canvasRef.current && cv) {
         transformService.renderToCanvas(
           cv,
           bitmapRef.current,
@@ -102,12 +101,12 @@ export function EditorSection({
         );
       }
     },
-    [handleUpdateBitmap, cv, getValues, cvLoading]
+    [handleUpdateBitmap, cv, getValues]
   );
 
   const debouncedCallback = useDebounceCallback(
     async (values: z.infer<typeof upsertEditSchema>) => {
-      if (!bitmapRef.current || !canvasRef.current || cvLoading) return;
+      if (!bitmapRef.current || !canvasRef.current || !cv) return;
 
       transformService.renderToCanvas(
         cv,
@@ -133,7 +132,7 @@ export function EditorSection({
 
     await handleUpdateBitmap();
 
-    if (!bitmapRef.current || !canvasRef.current || cvLoading) return;
+    if (!bitmapRef.current || !canvasRef.current || !cv) return;
 
     transformService.renderToCanvas(
       cv,
@@ -145,7 +144,6 @@ export function EditorSection({
     pageSourceImage,
     reset,
     cv,
-    cvLoading,
     pageId,
     handleUpdateBitmap,
     handleUpdateEditedImage,
@@ -172,16 +170,14 @@ export function EditorSection({
       await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
       if (cancelled) return;
 
-      if (bitmapRef.current && canvasRef.current && !cvLoading) {
-        transformService.renderToCanvas(
-          cv,
-          bitmapRef.current,
-          canvasRef.current,
-          pageEdit
-        );
-      }
+      if (!bitmapRef.current || !canvasRef.current || !cv) return;
 
-      setIsPreviewLoaded(true);
+      transformService.renderToCanvas(
+        cv,
+        bitmapRef.current,
+        canvasRef.current,
+        pageEdit
+      );
     }
 
     load();
@@ -190,24 +186,21 @@ export function EditorSection({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageId, cvLoading]);
+  }, [pageId, cv]);
 
   return (
     <div className="flex flex-row overflow-hidden h-full bg-neutral-900">
       <div className="overflow-y-auto relative flex items-start justify-center w-full">
         <canvas ref={canvasRef} className="w-full h-full object-contain" />
-        {isPreviewLoaded && (
-          <CropOverlay
-            ref={overlayRef}
-            canvasRef={canvasRef}
-            pageId={pageId}
-            sourceImage={pageSourceImage}
-            control={control}
-            handleUpdateEditedImage={handleUpdateEditedImage}
-            initialCrop={pageEdit.perspectiveCrop}
-            enabled={editingField === "crop"}
-          />
-        )}
+        <CropOverlay
+          ref={overlayRef}
+          canvasRef={canvasRef}
+          pageId={pageId}
+          sourceImage={pageSourceImage}
+          show={editingField === "crop"}
+          control={control}
+          handleUpdateEditedImage={handleUpdateEditedImage}
+        />
       </div>
 
       <ControlSection

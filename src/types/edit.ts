@@ -3,9 +3,11 @@ export interface Point {
   y: number;
 }
 
+export type FourPoints = [Point, Point, Point, Point];
+
 export type PerspectiveCrop =
   | { enabled: false }
-  | { enabled: true; points: [Point, Point, Point, Point] };
+  | { enabled: true; points: FourPoints };
 
 interface BaseEdit {
   rotation: number;

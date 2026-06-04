@@ -2,61 +2,97 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useController } from "react-hook-form";
-import { useAsRef } from "@/hooks/use-as-ref";
 import { useOpenCV } from "@/providers/opencv-provider";
-import {
-  getImageBounds,
-  imageToDisplay,
-  displayToImage,
-} from "@/lib/utils/crop-overlay";
 import transformService from "@/lib/services/transform";
 import imageService from "@/lib/services/image";
 import pageService from "@/lib/services/page";
 
 import type { RefObject } from "react";
-import type { Edit, PerspectiveCrop, Point } from "@/types/edit";
+import type { FourPoints, Edit, Point } from "@/types/edit";
 import type { Control } from "react-hook-form";
-import type { CropOverlayRef } from "@/types/components/crop-overlay";
+import type { CropOverlayControl } from "@/types/components/crop-overlay";
 import type { EditedImage } from "@/types/page";
 
-type FourPoints = Extract<PerspectiveCrop, { enabled: true }>["points"];
+interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 const HANDLE_RADIUS = 10;
-const DEFAULT_POINTS: [Point, Point, Point, Point] = [
-  { x: 0, y: 0 },
-  { x: 1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 1, y: 1 },
-];
+
+function getDefaultPoints(): FourPoints {
+  return [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ];
+}
 
 function buildQuadString(dp: Point[]): string {
   const [tl, tr, bl, br] = dp;
   return [tl, tr, br, bl].map((p) => `${p.x},${p.y}`).join(" ");
 }
 
+function getImageBounds(
+  canvas: HTMLCanvasElement,
+  bitmap: ImageBitmap
+): Bounds {
+  const rect = canvas.getBoundingClientRect();
+  const canvasAspect = bitmap.width / bitmap.height;
+  const containerAspect = rect.width / rect.height;
+
+  let width = rect.width;
+  let height = rect.height;
+
+  if (canvasAspect > containerAspect) {
+    height = rect.width / canvasAspect;
+  } else {
+    width = rect.height * canvasAspect;
+  }
+
+  return {
+    x: (rect.width - width) / 2,
+    y: (rect.height - height) / 2,
+    width,
+    height,
+  };
+}
+
+function imageToDisplay(point: Point, bounds: Bounds): Point {
+  return {
+    x: bounds.x + point.x * bounds.width,
+    y: bounds.y + point.y * bounds.height,
+  };
+}
+
+function displayToImage(point: Point, bounds: Bounds): Point {
+  return {
+    x: (point.x - bounds.x) / bounds.width,
+    y: (point.y - bounds.y) / bounds.height,
+  };
+}
+
 export function CropOverlay({
   ref,
   canvasRef,
   pageId,
-  enabled,
+  show,
   sourceImage,
-  initialCrop,
   control,
   handleUpdateEditedImage,
 }: {
-  ref: RefObject<CropOverlayRef | null>;
+  ref: RefObject<CropOverlayControl | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   pageId: number;
-  enabled: boolean;
+  show: boolean;
   sourceImage: Blob;
-  initialCrop: PerspectiveCrop;
   control: Control<Edit>;
   handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
-  const { cv, isLoading: cvLoading } = useOpenCV();
-
-  const cvRef = useAsRef(cv);
-  const cvLoadingRef = useAsRef(cvLoading);
+  const { cv } = useOpenCV();
 
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIndex = useRef<number | null>(null);
@@ -64,7 +100,7 @@ export function CropOverlay({
 
   const pointsRef = useRef<FourPoints | null>(null);
   const displayPointsRef = useRef<Point[] | null>(null);
-  const defaultDisplayRef = useRef<Point[] | null>(null);
+  const isUnsavedRef = useRef<boolean>(false);
 
   const hitAreaRefs = useRef<(SVGCircleElement | null)[]>([
     null,
@@ -88,84 +124,138 @@ export function CropOverlay({
     name: "perspectiveCrop",
   });
 
+  const { value: perspectiveCropValue, onChange: setPerspectiveCropValue } =
+    perspectiveCrop;
+
+  const handleApply = useCallback(async () => {
+    if (
+      !pointsRef.current ||
+      !bitmapRef.current ||
+      !isUnsavedRef.current ||
+      !cv
+    )
+      return;
+
+    setPerspectiveCropValue({ enabled: true, points: pointsRef.current });
+
+    const warpedImage = await transformService.generateWarped(
+      cv,
+      bitmapRef.current,
+      pointsRef.current
+    );
+
+    const { width, height } =
+      await imageService.getImageDimensions(warpedImage);
+
+    const editedImage = await imageService.generateEditedImage(
+      warpedImage,
+      width,
+      height
+    );
+    await pageService.updateEditedImage(pageId, editedImage);
+    handleUpdateEditedImage(editedImage);
+  }, [
+    cv,
+    bitmapRef,
+    pointsRef,
+    setPerspectiveCropValue,
+    handleUpdateEditedImage,
+    pageId,
+  ]);
+
+  const handleCancel = useCallback(() => {
+    if (!canvasRef.current || !bitmapRef.current || !isUnsavedRef.current)
+      return;
+
+    const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
+    const initial: FourPoints = perspectiveCropValue.enabled
+      ? [...perspectiveCropValue.points]
+      : getDefaultPoints();
+
+    const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
+
+    pointsRef.current = initial;
+    displayPointsRef.current = initialDisplay;
+    setDisplayPoints(initialDisplay);
+    isUnsavedRef.current = false;
+  }, [canvasRef, perspectiveCropValue]);
+
+  const handleOnChange = useCallback(
+    (points: FourPoints) => {
+      if (
+        !displayPointsRef.current ||
+        !canvasRef.current ||
+        !bitmapRef.current ||
+        !isUnsavedRef.current
+      )
+        return;
+
+      const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
+      pointsRef.current = points;
+
+      const displayPoints = points.map((p) => imageToDisplay(p, bounds));
+      displayPointsRef.current = displayPoints;
+      setDisplayPoints(displayPoints);
+      isUnsavedRef.current = false;
+    },
+    [canvasRef]
+  );
+
+  const handleReset = useCallback(() => {
+    if (!canvasRef.current || !bitmapRef.current) return;
+
+    const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
+    const initialDisplay = getDefaultPoints().map((p) =>
+      imageToDisplay(p, bounds)
+    );
+
+    pointsRef.current = null;
+    displayPointsRef.current = initialDisplay;
+    setDisplayPoints(initialDisplay);
+    setPerspectiveCropValue({ enabled: false });
+    isUnsavedRef.current = false;
+  }, [canvasRef, setPerspectiveCropValue]);
+
   useEffect(() => {
-    ref.current = {
-      handleApply: async () => {
-        if (!pointsRef.current || cvLoadingRef.current) return;
-
-        const bm = bitmapRef.current;
-        if (!bm) return;
-
-        perspectiveCrop.onChange({ enabled: true, points: pointsRef.current });
-
-        const warpedImage = await transformService.generateWarped(
-          cvRef.current!,
-          bm,
-          pointsRef.current
-        );
-
-        const { width, height } =
-          await imageService.getImageDimensions(warpedImage);
-
-        const editedImage = await imageService.generateEditedImage(
-          warpedImage,
-          width,
-          height
-        );
-
-        await pageService.updateEditedImage(pageId, editedImage);
-        handleUpdateEditedImage(editedImage);
-      },
-
-      handleCancel: () => {
-        pointsRef.current = null;
-        displayPointsRef.current = defaultDisplayRef.current;
-        setDisplayPoints(defaultDisplayRef.current);
-        perspectiveCrop.onChange({ enabled: false });
-      },
-
-      handleOnChange: (points: FourPoints) => {
-        if (!displayPointsRef.current) return;
-
-        pointsRef.current = points;
-
-        const canvas = canvasRef.current;
-        const bm = bitmapRef.current;
-        if (!canvas || !bm) return;
-
-        const bounds = getImageBounds(canvas, bm);
-
-        displayPointsRef.current = points.map((p) => imageToDisplay(p, bounds));
-        setDisplayPoints([...displayPointsRef.current]);
-      },
-    };
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    let cancelled = false;
 
     async function load() {
+      if (cancelled || !canvasRef.current) return;
+
       const bitmap = await createImageBitmap(sourceImage);
       bitmapRef.current = bitmap;
 
-      const bounds = getImageBounds(canvas!, bitmap);
+      const bounds = getImageBounds(canvasRef.current, bitmap);
 
-      const initial = initialCrop.enabled ? initialCrop.points : DEFAULT_POINTS;
+      const initial: FourPoints = perspectiveCropValue.enabled
+        ? [...perspectiveCropValue.points]
+        : getDefaultPoints();
+
       const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
+      if (cancelled) return;
 
       pointsRef.current = initial;
       displayPointsRef.current = initialDisplay;
-      defaultDisplayRef.current = initialDisplay;
       setDisplayPoints(initialDisplay);
     }
 
     load();
 
     return () => {
+      cancelled = true;
       bitmapRef.current?.close();
       bitmapRef.current = null;
     };
-    // eslint-disable-next-line
-  }, [pageId, sourceImage, initialCrop]);
+  }, [canvasRef, pageId, sourceImage, perspectiveCropValue]);
+
+  useEffect(() => {
+    ref.current = {
+      handleApply,
+      handleCancel,
+      handleOnChange,
+      handleReset,
+    };
+  }, [ref, handleApply, handleCancel, handleOnChange, handleReset]);
 
   const handlePointerDown = useCallback(
     (index: number, e: React.PointerEvent<SVGCircleElement>) => {
@@ -217,12 +307,14 @@ export function CropOverlay({
   const handlePointerUp = useCallback(() => {
     if (draggingIndex.current === null) return;
     draggingIndex.current = null;
+
     if (displayPointsRef.current) {
       setDisplayPoints([...displayPointsRef.current]);
+      isUnsavedRef.current = true;
     }
   }, []);
 
-  if (!displayPoints || !enabled) return null;
+  if (!displayPoints || !show) return null;
 
   const quadPoints = buildQuadString(displayPoints);
 

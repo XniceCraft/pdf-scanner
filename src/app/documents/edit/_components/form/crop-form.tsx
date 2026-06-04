@@ -1,17 +1,17 @@
 "use client";
 
 import { useCallback, useState, type RefObject } from "react";
-import { useOpenCV } from "@/providers/opencv-provider";
 import { Button, LoadingButton } from "@/components/ui/button";
-import opencvService from "@/lib/services/opencv";
+import processorService from "@/lib/services/processor";
 
-import type { CropOverlayRef } from "@/types/components/crop-overlay";
+import type { CropOverlayControl } from "@/types/components/crop-overlay";
 
 interface CropFormProps {
-  overlayRef: RefObject<CropOverlayRef | null>;
+  overlayRef: RefObject<CropOverlayControl | null>;
   sourceImage: Blob;
   isProcessing: boolean;
-  setIsProcessing: (isProcessing: boolean) => void;
+  setIsProcessing: (value: boolean) => void;
+  handleCancelCrop: () => Promise<void>;
   handleChangeEditingField: (field: "crop" | "adjustment") => Promise<void>;
 }
 
@@ -20,20 +20,21 @@ export function CropForm({
   sourceImage,
   isProcessing,
   setIsProcessing,
+  handleCancelCrop,
   handleChangeEditingField,
 }: CropFormProps) {
-  const { cv, isLoading: cvLoading } = useOpenCV();
   const [isCropping, setIsCropping] = useState<boolean>(false);
   const [isAutoCropping, setIsAutoCropping] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
 
   const handleAutoCrop = useCallback(async () => {
-    if (cvLoading || isProcessing || isCropping) return;
-
     setIsProcessing(true);
     setIsAutoCropping(true);
+
     const bitmap = await createImageBitmap(sourceImage);
+
     try {
-      const contour = opencvService.calculatePerspective(cv, bitmap);
+      const contour = processorService.getEdge(bitmap);
       if (contour.enabled) {
         overlayRef.current?.handleOnChange(contour.points);
       }
@@ -42,12 +43,12 @@ export function CropForm({
       setIsProcessing(false);
       setIsAutoCropping(false);
     }
-    // eslint-disable-next-line
-  }, [cv, cvLoading, isProcessing, sourceImage, overlayRef]);
+  }, [sourceImage, overlayRef, setIsProcessing]);
 
   const handleApplyCrop = useCallback(async () => {
     setIsProcessing(true);
     setIsCropping(true);
+
     try {
       await overlayRef.current?.handleApply();
       await handleChangeEditingField("adjustment");
@@ -55,21 +56,17 @@ export function CropForm({
       setIsProcessing(false);
       setIsCropping(false);
     }
-    // eslint-disable-next-line
-  }, [overlayRef, handleChangeEditingField]);
+  }, [overlayRef, handleChangeEditingField, setIsProcessing]);
 
-  const handleCancelCrop = useCallback(async () => {
-    if (isProcessing || cvLoading || isCropping) return;
+  const handleResetCrop = useCallback(async () => {
+    setIsResetting(true);
 
-    setIsCropping(true);
     try {
-      overlayRef.current?.handleCancel();
+      overlayRef.current?.handleReset();
     } finally {
-      setIsCropping(false);
+      setIsResetting(false);
     }
-    await handleChangeEditingField("adjustment");
-    // eslint-disable-next-line
-  }, [overlayRef, handleChangeEditingField]);
+  }, [overlayRef]);
 
   return (
     <>
@@ -83,7 +80,7 @@ export function CropForm({
           variant="outline"
           onClick={handleAutoCrop}
           isLoading={isAutoCropping}
-          disabled={isProcessing || cvLoading}
+          disabled={isProcessing}
         >
           Auto
         </LoadingButton>
@@ -96,7 +93,7 @@ export function CropForm({
           variant="outline"
           onClick={handleApplyCrop}
           isLoading={isCropping}
-          disabled={isProcessing || cvLoading}
+          disabled={isProcessing}
         >
           Apply
         </LoadingButton>
@@ -105,10 +102,20 @@ export function CropForm({
           size="sm"
           variant="destructive"
           onClick={handleCancelCrop}
-          disabled={isProcessing || cvLoading}
+          disabled={isProcessing}
         >
           Cancel
         </Button>
+        <LoadingButton
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={handleResetCrop}
+          isLoading={isResetting}
+          disabled={isProcessing}
+        >
+          Reset
+        </LoadingButton>
       </div>
     </>
   );

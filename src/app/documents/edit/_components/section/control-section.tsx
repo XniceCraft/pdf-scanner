@@ -5,11 +5,11 @@ import { CropIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CropForm } from "../form/crop-form";
 import { AdjustmentForm } from "../form/adjustment-form";
-import { type RefObject, useState } from "react";
+import { type RefObject, useCallback, useState } from "react";
 
 import type { Control } from "react-hook-form";
 import type { Edit } from "@/types/edit";
-import type { CropOverlayRef } from "@/types/components/crop-overlay";
+import type { CropOverlayControl } from "@/types/components/crop-overlay";
 
 export function ControlSection({
   control,
@@ -20,13 +20,18 @@ export function ControlSection({
   handleChangeEditingField,
 }: {
   control: Control<Edit>;
-  overlayRef: RefObject<CropOverlayRef | null>;
+  overlayRef: RefObject<CropOverlayControl | null>;
   sourceImage: Blob;
   handleReset: () => Promise<void>;
   editingField: "crop" | "adjustment";
   handleChangeEditingField: (field: "crop" | "adjustment") => Promise<void>;
 }) {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  const handleCancelCrop = useCallback(async () => {
+    overlayRef.current?.handleCancel();
+    await handleChangeEditingField("adjustment");
+  }, [overlayRef, handleChangeEditingField]);
 
   return (
     <>
@@ -45,11 +50,13 @@ export function ControlSection({
           variant="outline"
           size="icon"
           disabled={isProcessing}
-          onClick={() =>
+          onClick={async () => {
+            if (editingField === "crop") await handleCancelCrop();
+
             handleChangeEditingField(
               editingField === "crop" ? "adjustment" : "crop"
-            )
-          }
+            );
+          }}
         >
           {editingField === "crop" ? <SlidersHorizontalIcon /> : <CropIcon />}
         </Button>
@@ -68,6 +75,7 @@ export function ControlSection({
               sourceImage={sourceImage}
               isProcessing={isProcessing}
               setIsProcessing={setIsProcessing}
+              handleCancelCrop={handleCancelCrop}
               handleChangeEditingField={handleChangeEditingField}
             />
           )}
