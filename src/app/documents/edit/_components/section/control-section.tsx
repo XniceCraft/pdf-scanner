@@ -10,6 +10,11 @@ import { type RefObject, useCallback, useState } from "react";
 import type { Control } from "react-hook-form";
 import type { Edit } from "@/types/edit";
 import type { CropOverlayControl } from "@/types/components/crop-overlay";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function ControlSection({
   control,
@@ -36,30 +41,57 @@ export function ControlSection({
   return (
     <>
       <aside className="flex-col items-center hidden gap-3 lg:flex p-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={handleReset}
-          disabled={isProcessing}
-        >
-          <RotateCcwIcon />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          disabled={isProcessing}
-          onClick={async () => {
-            if (editingField === "crop") await handleCancelCrop();
-
-            handleChangeEditingField(
-              editingField === "crop" ? "adjustment" : "crop"
-            );
-          }}
-        >
-          {editingField === "crop" ? <SlidersHorizontalIcon /> : <CropIcon />}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              onClick={handleReset}
+              disabled={isProcessing}
+            >
+              <RotateCcwIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Reset Edit</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={isProcessing}
+              onClick={async () => {
+                await handleCancelCrop();
+                handleChangeEditingField("adjustment");
+              }}
+            >
+              <SlidersHorizontalIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Adjustment</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              disabled={isProcessing}
+              onClick={() => handleChangeEditingField("crop")}
+            >
+              <CropIcon />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Crop</p>
+          </TooltipContent>
+        </Tooltip>
       </aside>
       <ScrollArea
         type="always"

@@ -35,7 +35,6 @@ export function CropForm({
 
     try {
       const contour = processorService.getEdge(bitmap);
-      console.log(contour);
       if (contour.enabled) {
         overlayRef.current?.handleOnChange(contour.points);
       }
@@ -63,7 +62,7 @@ export function CropForm({
     setIsResetting(true);
 
     try {
-      overlayRef.current?.handleReset();
+      await overlayRef.current?.handleReset();
     } finally {
       setIsResetting(false);
     }

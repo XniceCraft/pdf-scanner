@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { useAsRef } from "@/hooks/use-as-ref";
 import { useController } from "react-hook-form";
 import { useOpenCV } from "@/providers/opencv-provider";
 import transformService from "@/lib/services/transform";
@@ -75,6 +82,10 @@ function displayToImage(point: Point, bounds: Bounds): Point {
   };
 }
 
+function resolveInitialPoints(value: Edit["perspectiveCrop"]): FourPoints {
+  return value.enabled ? [...value.points] : getDefaultPoints();
+}
+
 export function CropOverlay({
   ref,
   canvasRef,
@@ -123,9 +134,68 @@ export function CropOverlay({
     control,
     name: "perspectiveCrop",
   });
-
   const { value: perspectiveCropValue, onChange: setPerspectiveCropValue } =
     perspectiveCrop;
+
+  const perspectiveCropValueRef = useAsRef(perspectiveCropValue);
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    function handleResize() {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (!canvasRef.current || !bitmapRef.current) return;
+
+        const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
+        const initial = resolveInitialPoints(perspectiveCropValueRef.current!);
+        const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
+
+        displayPointsRef.current = initialDisplay;
+        setDisplayPoints(initialDisplay);
+      }, 150);
+    }
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let bitmap: ImageBitmap | null = null;
+
+    async function load() {
+      if (cancelled || !canvasRef.current) return;
+
+      bitmap = await createImageBitmap(sourceImage);
+      bitmapRef.current = bitmap;
+
+      const bounds = getImageBounds(canvasRef.current, bitmap);
+
+      const initial = resolveInitialPoints(perspectiveCropValueRef.current);
+      const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
+      if (cancelled) return;
+
+      pointsRef.current = initial;
+      displayPointsRef.current = initialDisplay;
+      setDisplayPoints(initialDisplay);
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+      bitmap?.close();
+      bitmapRef.current?.close();
+      bitmapRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId, sourceImage]);
 
   const handleApply = useCallback(async () => {
     if (
@@ -168,17 +238,15 @@ export function CropOverlay({
       return;
 
     const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
-    const initial: FourPoints = perspectiveCropValue.enabled
-      ? [...perspectiveCropValue.points]
-      : getDefaultPoints();
-
+    const initial = resolveInitialPoints(perspectiveCropValueRef.current);
     const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
 
     pointsRef.current = initial;
     displayPointsRef.current = initialDisplay;
     setDisplayPoints(initialDisplay);
     isUnsavedRef.current = false;
-  }, [canvasRef, perspectiveCropValue]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleOnChange = useCallback(
     (points: FourPoints) => {
@@ -193,10 +261,11 @@ export function CropOverlay({
       setDisplayPoints(displayPoints);
       isUnsavedRef.current = true;
     },
-    [canvasRef]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
-  const handleReset = useCallback(() => {
+  const handleReset = useCallback(async () => {
     if (!canvasRef.current || !bitmapRef.current) return;
 
     const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
@@ -208,49 +277,25 @@ export function CropOverlay({
     displayPointsRef.current = initialDisplay;
     setDisplayPoints(initialDisplay);
     setPerspectiveCropValue({ enabled: false });
+
+    const { width, height } =
+      await imageService.getImageDimensions(sourceImage);
+
+    const editedImage = await imageService.generateEditedImage(
+      sourceImage,
+      width,
+      height
+    );
+    await pageService.updateEditedImage(pageId, editedImage);
+    handleUpdateEditedImage(editedImage);
     isUnsavedRef.current = false;
-  }, [canvasRef, setPerspectiveCropValue]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (cancelled || !canvasRef.current) return;
-
-      const bitmap = await createImageBitmap(sourceImage);
-      bitmapRef.current = bitmap;
-
-      const bounds = getImageBounds(canvasRef.current, bitmap);
-
-      const initial: FourPoints = perspectiveCropValue.enabled
-        ? [...perspectiveCropValue.points]
-        : getDefaultPoints();
-
-      const initialDisplay = initial.map((p) => imageToDisplay(p, bounds));
-      if (cancelled) return;
-
-      pointsRef.current = initial;
-      displayPointsRef.current = initialDisplay;
-      setDisplayPoints(initialDisplay);
-    }
-
-    load();
-
-    return () => {
-      cancelled = true;
-      bitmapRef.current?.close();
-      bitmapRef.current = null;
-    };
-  }, [canvasRef, pageId, sourceImage, perspectiveCropValue]);
-
-  useEffect(() => {
-    ref.current = {
-      handleApply,
-      handleCancel,
-      handleOnChange,
-      handleReset,
-    };
-  }, [ref, handleApply, handleCancel, handleOnChange, handleReset]);
+  }, [
+    canvasRef,
+    setPerspectiveCropValue,
+    handleUpdateEditedImage,
+    pageId,
+    sourceImage,
+  ]);
 
   const handlePointerDown = useCallback(
     (index: number, e: React.PointerEvent<SVGCircleElement>) => {
@@ -262,14 +307,23 @@ export function CropOverlay({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
-      if (draggingIndex.current === null) return;
-      const canvas = canvasRef.current;
-      const bm = bitmapRef.current;
-      if (!canvas || !bm || !svgRef.current) return;
-      if (!pointsRef.current || !displayPointsRef.current) return;
+      const idx = draggingIndex.current;
+      if (idx === null) return;
 
-      const svgRect = svgRef.current.getBoundingClientRect();
-      const bounds = getImageBounds(canvas, bm);
+      const canvas = canvasRef.current;
+      const bitmap = bitmapRef.current;
+      const svg = svgRef.current;
+      if (
+        !canvas ||
+        !bitmap ||
+        !svg ||
+        !pointsRef.current ||
+        !displayPointsRef.current
+      )
+        return;
+
+      const svgRect = svg.getBoundingClientRect();
+      const bounds = getImageBounds(canvas, bitmap);
 
       const raw = displayToImage(
         { x: e.clientX - svgRect.left, y: e.clientY - svgRect.top },
@@ -282,7 +336,6 @@ export function CropOverlay({
       };
 
       const dp = imageToDisplay(clamped, bounds);
-      const idx = draggingIndex.current;
 
       pointsRef.current[idx] = clamped;
       displayPointsRef.current[idx] = dp;
@@ -296,7 +349,8 @@ export function CropOverlay({
       outlineRef.current?.setAttribute("points", quad);
       maskPolygonRef.current?.setAttribute("points", quad);
     },
-    [canvasRef]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
 
   const handlePointerUp = useCallback(() => {
@@ -308,6 +362,17 @@ export function CropOverlay({
       isUnsavedRef.current = true;
     }
   }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      handleApply,
+      handleCancel,
+      handleOnChange,
+      handleReset,
+    }),
+    [handleApply, handleCancel, handleOnChange, handleReset]
+  );
 
   if (!displayPoints || !show) return null;
 

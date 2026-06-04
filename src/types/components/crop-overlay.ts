@@ -6,5 +6,5 @@ export interface CropOverlayControl {
   handleApply: () => Promise<void>;
   handleCancel: () => void;
   handleOnChange: (points: FourPoints) => void;
-  handleReset: () => void;
+  handleReset: () => Promise<void>;
 }
