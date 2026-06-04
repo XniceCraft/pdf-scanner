@@ -68,12 +68,6 @@ export const upsertEditSchema = z.discriminatedUnion("preset", [
   }),
   z.object({
     ...baseEditShape,
-    ...colorEditShape,
-    ...luminanceEditShape,
-    preset: z.literal("enhanced"),
-  }),
-  z.object({
-    ...baseEditShape,
     brightness: luminanceEditShape.brightness,
     contrast: luminanceEditShape.contrast,
     preset: z.literal("no-shadow"),

@@ -34,13 +34,9 @@ export interface OriginalEdit extends FullEdit {
   preset: "original";
 }
 
-export interface EnhancedEdit extends FullEdit {
-  preset: "enhanced";
-}
-
 export interface NoShadowEdit
   extends BaseEdit, Pick<LuminanceEdit, "brightness" | "contrast"> {
   preset: "no-shadow";
 }
 
-export type Edit = OriginalEdit | EnhancedEdit | NoShadowEdit;
+export type Edit = OriginalEdit | NoShadowEdit;

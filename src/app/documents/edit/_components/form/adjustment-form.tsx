@@ -44,7 +44,6 @@ export function AdjustmentForm({ control }: AdjustmentFormProps) {
             <SelectContent position="item-aligned">
               <SelectGroup>
                 <SelectItem value="original">Original</SelectItem>
-                <SelectItem value="enhanced">Enhanced</SelectItem>
                 <SelectItem value="no-shadow">No Shadow</SelectItem>
               </SelectGroup>
             </SelectContent>
