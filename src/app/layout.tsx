@@ -52,11 +52,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <head>
-          <Script
+          {/* <Script
             src="//unpkg.com/react-scan/dist/auto.global.js"
             crossOrigin="anonymous"
             strategy="beforeInteractive"
-          />
+          /> */}
         </head>
         <body
           className="font-sans antialiased min-h-full flex flex-col"

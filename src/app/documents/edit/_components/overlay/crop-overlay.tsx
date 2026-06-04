@@ -182,12 +182,7 @@ export function CropOverlay({
 
   const handleOnChange = useCallback(
     (points: FourPoints) => {
-      if (
-        !displayPointsRef.current ||
-        !canvasRef.current ||
-        !bitmapRef.current ||
-        !isUnsavedRef.current
-      )
+      if (!displayPointsRef.current || !canvasRef.current || !bitmapRef.current)
         return;
 
       const bounds = getImageBounds(canvasRef.current, bitmapRef.current);
@@ -196,7 +191,7 @@ export function CropOverlay({
       const displayPoints = points.map((p) => imageToDisplay(p, bounds));
       displayPointsRef.current = displayPoints;
       setDisplayPoints(displayPoints);
-      isUnsavedRef.current = false;
+      isUnsavedRef.current = true;
     },
     [canvasRef]
   );
