@@ -209,7 +209,6 @@ export function CropOverlay({
     setPerspectiveCropValue({ enabled: true, points: pointsRef.current });
 
     const warpedImage = await transformService.generateWarped(
-      cv,
       bitmapRef.current,
       pointsRef.current
     );

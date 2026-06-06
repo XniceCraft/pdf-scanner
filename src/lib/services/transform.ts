@@ -1,6 +1,7 @@
 import type { Edit, PerspectiveCrop, Point } from "@/types/edit";
 import type { Size } from "@/types/size";
 import type { OpenCV } from "@opencvjs/web";
+import perspectiveRenderer from "@/lib/services/rendering/PerspectiveRenderer";
 
 const MAX_COLOR_SHIFT = 25;
 const MAX_BRIGHTNESS = 100;
@@ -32,44 +33,34 @@ class TransformService {
     src.delete();
   }
 
-  // Used for perspective warp image caching
+  /**
+   * Generates a perspective-corrected warp of `bitmap` for caching.
+   *
+   * Output dimensions are computed by {@link computeWarpSize} — identical to
+   * the previous OpenCV implementation — and the warp is performed by
+   * {@link perspectiveRenderer} via WebGL2 inverse homography mapping.
+   *
+   * @param bitmap Source image to warp.
+   * @param points Normalised quad corners: [topLeft, topRight, bottomLeft, bottomRight].
+   * @returns      A `image/webp` blob of the warped image at full quality.
+   */
   async generateWarped(
-    cv: typeof OpenCV,
     bitmap: ImageBitmap,
     points: Extract<PerspectiveCrop, { enabled: true }>["points"]
   ): Promise<Blob> {
-    const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height);
-    const ctx = offscreen.getContext("2d")!;
-    ctx.drawImage(bitmap, 0, 0);
+    const size = this.computeWarpSize(points, {
+      width: bitmap.width,
+      height: bitmap.height,
+    });
 
-    const src = cv.matFromImageData(
-      ctx.getImageData(0, 0, bitmap.width, bitmap.height)
-    );
-    const warped = new cv.Mat();
+    const canvas = await perspectiveRenderer.render(bitmap, points, size);
 
-    try {
-      const size = this.computeWarpSize(points, {
-        width: bitmap.width,
-        height: bitmap.height,
-      });
-      this.applyWarp(cv, warped, src, points, size);
-
-      const out = document.createElement("canvas");
-      out.width = size.width;
-      out.height = size.height;
-      cv.imshow(out, warped);
-
-      return await new Promise<Blob>((resolve, reject) =>
-        out.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
-          "image/webp",
-          1
-        )
-      );
-    } finally {
-      src.delete();
-      warped.delete();
-    }
+    const blob = await canvas.convertToBlob({
+      type: "image/webp",
+      quality: 1,
+    });
+    if (!blob) throw new Error("convertToBlob failed");
+    return blob;
   }
 
   async exportPage(
