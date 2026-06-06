@@ -43,17 +43,17 @@ class PageService {
   }
 
   async create(data: CreatePageInput) {
-    const largeOriginalImage = await imageService.generateOriginalThumbnail(
-      data.image
-    );
+    const images = await imageService.generateImagesFromSource(data.image);
 
     const sourceImage: SourceImage = {
       original: data.image,
-      large: largeOriginalImage,
+      large: images.largeSourceImage,
     };
 
-    const editedImage =
-      await imageService.generateEditedImageFromLarge(largeOriginalImage);
+    const editedImage: EditedImage = {
+      large: images.largeEditedImage,
+      small: images.smallEditedImage,
+    };
 
     const id = await db.pages.add({
       documentId: data.documentId,
@@ -77,14 +77,8 @@ class PageService {
   }
 
   async createMany(data: BulkCreatePageInput) {
-    const largeOriginalImages = await Promise.all(
-      data.images.map((img) => imageService.generateOriginalThumbnail(img))
-    );
-
-    const editedImages = await Promise.all(
-      largeOriginalImages.map((img) =>
-        imageService.generateEditedImageFromLarge(img)
-      )
+    const images = await Promise.all(
+      data.images.map((img) => imageService.generateImagesFromSource(img))
     );
 
     return db.pages.bulkAdd(
@@ -92,9 +86,12 @@ class PageService {
         documentId: data.documentId,
         sourceImage: {
           original: data.images[index],
-          large: largeOriginalImages[index],
+          large: images[index].largeSourceImage,
         },
-        editedImage: editedImages[index],
+        editedImage: {
+          large: images[index].largeEditedImage,
+          small: images[index].smallEditedImage,
+        },
         edit: {
           preset: "original",
           rotation: 0,
@@ -141,9 +138,14 @@ class PageService {
     const page = await db.pages.get(id);
     if (!page) return;
 
-    const newEditedImage =
-      editedImage ??
-      (await imageService.generateEditedImageFromLarge(page.sourceImage.large));
+    let newEditedImage: EditedImage;
+    if (editedImage) {
+      newEditedImage = editedImage;
+    } else {
+      newEditedImage = await imageService.generateEditedImageFromLarge(
+        page.sourceImage.large
+      );
+    }
 
     await db.pages.update(id, {
       editedImage: newEditedImage,

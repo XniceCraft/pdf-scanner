@@ -46,9 +46,9 @@ export function EditorSection({
   handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const bitmapRef = useRef<ImageBitmap | null>(null);
+  const sourceBitmapRef = useRef<ImageBitmap | null>(null);
+  const editedBitmapRef = useRef<ImageBitmap | null>(null);
   const overlayRef = useRef<CropOverlayControl | null>(null);
-  const editedImageRef = useRef<Blob>(pageEditedImage);
 
   const [editingField, setEditingField] = useState<"crop" | "adjustment">(
     "adjustment"
@@ -62,21 +62,13 @@ export function EditorSection({
     values: pageEdit,
   });
 
-  const handleUpdateBitmap = useCallback(
-    async (useEdited?: boolean) => {
-      const bitmap = await createImageBitmap(
-        useEdited ? editedImageRef.current : pageSourceImage
-      );
-      bitmapRef.current?.close();
-      bitmapRef.current = bitmap;
-    },
-    [editedImageRef, pageSourceImage]
-  );
-
   const handleUpdateEditedImage = useCallback(
-    (editedImage: EditedImage) => {
-      editedImageRef.current = editedImage.large;
-      handleUpdateEditedImageParent(editedImage);
+    async (newImage: EditedImage) => {
+      handleUpdateEditedImageParent(newImage);
+
+      const bitmap = await createImageBitmap(newImage.large);
+      editedBitmapRef.current?.close();
+      editedBitmapRef.current = bitmap;
     },
     [handleUpdateEditedImageParent]
   );
@@ -84,32 +76,35 @@ export function EditorSection({
   const handleChangeEditingField = useCallback(
     async (field: "crop" | "adjustment") => {
       setEditingField(field);
-      if (field === "adjustment") {
-        await handleUpdateBitmap(true);
-      } else {
-        await handleUpdateBitmap();
-      }
 
-      if (bitmapRef.current && canvasRef.current) {
-        transformService.renderToCanvas(
-          bitmapRef.current,
-          canvasRef.current,
-          getValues()
-        );
-      }
+      if (
+        !sourceBitmapRef.current ||
+        !editedBitmapRef.current ||
+        !canvasRef.current
+      )
+        return;
+
+      transformService.renderToCanvas(
+        field === "adjustment"
+          ? editedBitmapRef.current
+          : sourceBitmapRef.current,
+        canvasRef.current,
+        getValues()
+      );
     },
-    [handleUpdateBitmap, getValues]
+    [getValues]
   );
 
   const debouncedCallback = useDebounceCallback(
     async (values: z.infer<typeof upsertEditSchema>) => {
-      if (!bitmapRef.current || !canvasRef.current) return;
+      if (!editedBitmapRef.current || !canvasRef.current) return;
 
-      transformService.renderToCanvas(
-        bitmapRef.current,
-        canvasRef.current,
-        values
-      );
+      if (editingField !== "crop")
+        transformService.renderToCanvas(
+          editedBitmapRef.current,
+          canvasRef.current,
+          values
+        );
 
       handleUpdateEdit(values);
       await pageService.updateEdit(pageId, values);
@@ -126,20 +121,17 @@ export function EditorSection({
     handleUpdateEdit(DEFAULT_EDIT_VALUES);
     reset(DEFAULT_EDIT_VALUES);
 
-    await handleUpdateBitmap();
-
-    if (!bitmapRef.current || !canvasRef.current) return;
-
-    transformService.renderToCanvas(
-      bitmapRef.current,
-      canvasRef.current,
-      DEFAULT_EDIT_VALUES
-    );
+    if (sourceBitmapRef.current && canvasRef.current) {
+      transformService.renderToCanvas(
+        sourceBitmapRef.current,
+        canvasRef.current,
+        DEFAULT_EDIT_VALUES
+      );
+    }
   }, [
     pageSourceImage,
     reset,
     pageId,
-    handleUpdateBitmap,
     handleUpdateEditedImage,
     handleUpdateEdit,
   ]);
@@ -157,17 +149,26 @@ export function EditorSection({
 
   useEffect(() => {
     let cancelled = false;
+    let sourceBitmap: ImageBitmap | null = null;
+    let editedBitmap: ImageBitmap | null = null;
 
     async function load() {
       if (cancelled) return;
 
-      await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
-      if (cancelled) return;
+      sourceBitmap = await createImageBitmap(pageSourceImage);
+      editedBitmap = await createImageBitmap(pageEditedImage);
+      if (cancelled) {
+        sourceBitmap?.close();
+        editedBitmap?.close();
+        return;
+      }
 
-      if (!bitmapRef.current || !canvasRef.current) return;
+      if (!canvasRef.current) return;
 
+      sourceBitmapRef.current = sourceBitmap;
+      editedBitmapRef.current = editedBitmap;
       transformService.renderToCanvas(
-        bitmapRef.current,
+        pageEdit.perspectiveCrop.enabled ? editedBitmap : sourceBitmap,
         canvasRef.current,
         pageEdit
       );
@@ -175,7 +176,8 @@ export function EditorSection({
 
     load();
     return () => {
-      bitmapRef.current?.close();
+      sourceBitmap?.close();
+      editedBitmap?.close();
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

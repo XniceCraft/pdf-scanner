@@ -73,7 +73,7 @@ class TransformService {
         height: bitmap.height,
       });
 
-      const warpedCanvas = await perspectiveRenderer.render(
+      const warpedCanvas = perspectiveRenderer.render(
         bitmap,
         edit.perspectiveCrop.points,
         size
@@ -81,13 +81,13 @@ class TransformService {
 
       source = await createImageBitmap(warpedCanvas);
     } else {
-      source = await createImageBitmap(bitmap);
+      source = bitmap;
     }
 
     try {
       colorRenderer.render(source, canvas, edit);
     } finally {
-      source.close();
+      if (edit.perspectiveCrop.enabled) source.close();
     }
   }
 

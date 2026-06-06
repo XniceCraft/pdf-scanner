@@ -100,7 +100,7 @@ export function CropOverlay({
   show: boolean;
   sourceImage: Blob;
   control: Control<Edit>;
-  handleUpdateEditedImage: (editedImage: EditedImage) => void;
+  handleUpdateEditedImage: (editedImage: EditedImage) => Promise<void>;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIndex = useRef<number | null>(null);
@@ -205,16 +205,11 @@ export function CropOverlay({
       pointsRef.current
     );
 
-    const { width, height } =
-      await imageService.getImageDimensions(warpedImage);
+    const editedImage =
+      await imageService.generateEditedImageFromLarge(warpedImage);
 
-    const editedImage = await imageService.generateEditedImage(
-      warpedImage,
-      width,
-      height
-    );
     await pageService.updateEditedImage(pageId, editedImage);
-    handleUpdateEditedImage(editedImage);
+    await handleUpdateEditedImage(editedImage);
   }, [
     bitmapRef,
     pointsRef,
@@ -268,14 +263,9 @@ export function CropOverlay({
     setDisplayPoints(initialDisplay);
     setPerspectiveCropValue({ enabled: false });
 
-    const { width, height } =
-      await imageService.getImageDimensions(sourceImage);
+    const editedImage =
+      await imageService.generateEditedImageFromLarge(sourceImage);
 
-    const editedImage = await imageService.generateEditedImage(
-      sourceImage,
-      width,
-      height
-    );
     await pageService.updateEditedImage(pageId, editedImage);
     handleUpdateEditedImage(editedImage);
     isUnsavedRef.current = false;

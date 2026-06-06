@@ -1,4 +1,5 @@
 import type { EditedImage } from "@/types/page";
+import type { Size } from "@/types/size";
 
 const DEFAULT_QUALITY = 0.85;
 const OUTPUT_FORMAT = "image/webp";
@@ -51,7 +52,7 @@ class ImageService {
   }
 
   async resize(
-    source: Blob,
+    source: Blob | ImageBitmap,
     originalWidth: number,
     originalHeight: number,
     preset: ImagePreset
@@ -80,39 +81,37 @@ class ImageService {
     });
   }
 
-  async generateEditedImage(
-    source: Blob,
-    width: number,
-    height: number
-  ): Promise<EditedImage> {
-    return Promise.all([
+  /**
+   * Utilized when first time create page image
+   */
+  async generateImagesFromSource(source: Blob) {
+    const { width, height } = await this.getImageDimensions(source);
+
+    const images = await Promise.all([
       this.resize(source, width, height, "small"),
       this.resize(source, width, height, "large"),
     ]).then(([small, large]) => ({
       small,
       large,
     }));
+
+    return {
+      largeSourceImage: images.large,
+      largeEditedImage: images.large,
+      smallEditedImage: images.small,
+    };
   }
 
-  async generateEditedImageFromLarge(largeImage: Blob) {
-    const largeImageDimensions = await this.getImageDimensions(largeImage);
+  async generateEditedImageFromLarge(
+    source: Blob,
+    size?: Size
+  ): Promise<EditedImage> {
+    const { width, height } = size ?? (await this.getImageDimensions(source));
 
-    return await this.generateEditedImage(
-      largeImage,
-      largeImageDimensions.width,
-      largeImageDimensions.height
-    );
-  }
-
-  async generateOriginalThumbnail(originalImage: Blob) {
-    const originalDimensions = await this.getImageDimensions(originalImage);
-
-    return await this.resize(
-      originalImage,
-      originalDimensions.width,
-      originalDimensions.height,
-      "large"
-    );
+    return {
+      large: source,
+      small: await this.resize(source, width, height, "small"),
+    };
   }
 }
 

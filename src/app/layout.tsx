@@ -4,7 +4,7 @@ import { Outfit } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Script from "next/script";
+// import Script from "next/script";
 
 import type { Metadata } from "next";
 
@@ -51,13 +51,13 @@ export default function RootLayout({
         className={`${outfit.variable} h-full dark`}
         suppressHydrationWarning
       >
-        <head>
-          {/* <Script
+        {/* <head>
+          <Script
             src="//unpkg.com/react-scan/dist/auto.global.js"
             crossOrigin="anonymous"
             strategy="beforeInteractive"
-          /> */}
-        </head>
+          />
+        </head> */}
         <body
           className="font-sans antialiased min-h-full flex flex-col"
           suppressHydrationWarning
