@@ -26,8 +26,8 @@
  *   // Read result via fbo.texture
  *   fbo.dispose();   // deletes both FBO and its texture
  */
-import { Texture } from "./Texture";
-import type { WebGLContext } from "./WebGLContext";
+import { Texture } from "./texture";
+import type { WebGLContext } from "./webgl-context";
 
 export class Framebuffer {
   private readonly gl: WebGL2RenderingContext;

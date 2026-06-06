@@ -2,7 +2,6 @@
 
 import { useDebounceCallback } from "@/hooks/use-debounce-callback";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useOpenCV } from "@/providers/opencv-provider";
 import { useForm } from "react-hook-form";
 import { upsertEditSchema } from "@/lib/validations/edit";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -51,7 +50,6 @@ export function EditorSection({
   const overlayRef = useRef<CropOverlayControl | null>(null);
   const editedImageRef = useRef<Blob>(pageEditedImage);
 
-  const { cv } = useOpenCV();
   const [editingField, setEditingField] = useState<"crop" | "adjustment">(
     "adjustment"
   );
@@ -92,24 +90,22 @@ export function EditorSection({
         await handleUpdateBitmap();
       }
 
-      if (bitmapRef.current && canvasRef.current && cv) {
+      if (bitmapRef.current && canvasRef.current) {
         transformService.renderToCanvas(
-          cv,
           bitmapRef.current,
           canvasRef.current,
           getValues()
         );
       }
     },
-    [handleUpdateBitmap, cv, getValues]
+    [handleUpdateBitmap, getValues]
   );
 
   const debouncedCallback = useDebounceCallback(
     async (values: z.infer<typeof upsertEditSchema>) => {
-      if (!bitmapRef.current || !canvasRef.current || !cv) return;
+      if (!bitmapRef.current || !canvasRef.current) return;
 
       transformService.renderToCanvas(
-        cv,
         bitmapRef.current,
         canvasRef.current,
         values
@@ -132,10 +128,9 @@ export function EditorSection({
 
     await handleUpdateBitmap();
 
-    if (!bitmapRef.current || !canvasRef.current || !cv) return;
+    if (!bitmapRef.current || !canvasRef.current) return;
 
     transformService.renderToCanvas(
-      cv,
       bitmapRef.current,
       canvasRef.current,
       DEFAULT_EDIT_VALUES
@@ -143,7 +138,6 @@ export function EditorSection({
   }, [
     pageSourceImage,
     reset,
-    cv,
     pageId,
     handleUpdateBitmap,
     handleUpdateEditedImage,
@@ -170,10 +164,9 @@ export function EditorSection({
       await handleUpdateBitmap(pageEdit.perspectiveCrop.enabled);
       if (cancelled) return;
 
-      if (!bitmapRef.current || !canvasRef.current || !cv) return;
+      if (!bitmapRef.current || !canvasRef.current) return;
 
       transformService.renderToCanvas(
-        cv,
         bitmapRef.current,
         canvasRef.current,
         pageEdit
@@ -186,7 +179,7 @@ export function EditorSection({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageId, cv]);
+  }, [pageId]);
 
   return (
     <div className="flex flex-row overflow-hidden h-full bg-neutral-900">

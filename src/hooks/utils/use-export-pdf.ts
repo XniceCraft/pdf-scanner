@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useOpenCV } from "@/providers/opencv-provider";
 import documentService from "@/lib/services/document";
 import toast from "react-hot-toast";
 
@@ -15,21 +14,14 @@ export function useExportPdf(
   documentName: string
 ): UseExportPdfResult {
   const [isExporting, setIsExporting] = useState<boolean>(false);
-  const { cv, isLoading } = useOpenCV();
 
   const exportPdf = useCallback(async () => {
     if (isExporting) return;
     const toastId = toast.loading(`Exporting "${documentName}.pdf"`);
 
     try {
-      if (isLoading) {
-        toast.dismiss(toastId);
-        toast.error("Please wait for OpenCV to load");
-        return;
-      }
-
       setIsExporting(true);
-      const blob = await documentService.exportToPdf(cv, documentId);
+      const blob = await documentService.exportToPdf(documentId);
       if (!blob) {
         setIsExporting(false);
         toast.dismiss(toastId);
@@ -53,7 +45,7 @@ export function useExportPdf(
     } finally {
       setIsExporting(false);
     }
-  }, [cv, documentId, documentName, isLoading, isExporting]);
+  }, [documentId, documentName, isExporting]);
 
   return { exportPdf, isExporting };
 }

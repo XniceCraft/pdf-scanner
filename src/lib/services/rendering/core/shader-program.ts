@@ -22,7 +22,7 @@
  *   // … draw calls …
  *   program.dispose();
  */
-import type { WebGLContext } from "./WebGLContext";
+import type { WebGLContext } from "./webgl-context";
 
 export class ShaderProgram {
   private readonly gl: WebGL2RenderingContext;

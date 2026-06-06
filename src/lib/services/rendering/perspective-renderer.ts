@@ -2,10 +2,10 @@
 
 import type { FourPoints } from "@/types/edit";
 import type { Size } from "@/types/size";
-import { WebGLContext } from "./core/WebGLContext";
-import { ShaderProgram } from "./core/ShaderProgram";
-import { Texture } from "./core/Texture";
-import { computePerspectiveMatrix } from "./utils/perspectiveMatrix";
+import { WebGLContext } from "./core/webgl-context";
+import { ShaderProgram } from "./core/shader-program";
+import { Texture } from "./core/texture";
+import { computePerspectiveMatrix } from "./utils/perspective-matrix";
 
 const VERT = /* glsl */ `#version 300 es
 precision highp float;
@@ -191,7 +191,7 @@ class PerspectiveRenderer {
    * @param outputSize  Pixel dimensions of the output canvas.
    * @param canvas      Render target — `HTMLCanvasElement` or `OffscreenCanvas`.
    */
-  async render(bitmap: ImageBitmap, points: FourPoints, outputSize: Size) {
+  render(bitmap: ImageBitmap, points: FourPoints, outputSize: Size) {
     if (!this.ctx || !this.canvas)
       throw new Error("Failed to get canvas context");
 

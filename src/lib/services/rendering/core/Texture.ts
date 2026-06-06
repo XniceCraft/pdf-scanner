@@ -19,7 +19,7 @@
  *   // … draw …
  *   tex.dispose();
  */
-import type { WebGLContext } from "./WebGLContext";
+import type { WebGLContext } from "./webgl-context";
 
 export type TextureFilter = "linear" | "nearest";
 export type TextureWrap = "clamp" | "repeat" | "mirror";

@@ -6,8 +6,9 @@
  * Import order matches the typical dependency chain:
  *   WebGLContext → ShaderProgram / Texture → Framebuffer
  */
-export { WebGLContext } from "./WebGLContext";
-export { ShaderProgram } from "./ShaderProgram";
-export { Texture } from "./Texture";
-export type { TextureFilter, TextureWrap } from "./Texture";
-export { Framebuffer } from "./Framebuffer";
+export { WebGLContext } from "./webgl-context";
+export { ShaderProgram } from "./shader-program";
+export { Texture } from "./texture";
+export { Framebuffer } from "./framebuffer";
+
+export type { TextureFilter, TextureWrap } from "./texture";

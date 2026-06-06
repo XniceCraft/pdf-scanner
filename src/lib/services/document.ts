@@ -5,7 +5,6 @@ import transformService from "./transform";
 
 import type { UpsertDocumentInput } from "@/lib/validations/document";
 import type { Document as DocumentType } from "@/types/document";
-import type { OpenCV } from "@opencvjs/web";
 
 interface AllQueryParams {
   orderBy?: "createdAt" | "updatedAt" | "name";
@@ -106,7 +105,7 @@ class DocumentService {
     });
   }
 
-  async exportToPdf(cv: typeof OpenCV, id: number): Promise<Blob | undefined> {
+  async exportToPdf(id: number): Promise<Blob | undefined> {
     const userDocument = await this.findWithPages(id);
     if (!userDocument) return undefined;
 
@@ -137,7 +136,7 @@ class DocumentService {
         const x = 0;
         const y = (297 - pdfHeight) / 2;
 
-        await transformService.exportPage(cv, sourceBitmap, canvas, page.edit);
+        await transformService.exportPage(sourceBitmap, canvas, page.edit);
         doc.addImage(canvas, "WEBP", x, y, pdfWidth, pdfHeight);
 
         if (i !== userDocument.pages.length - 1) {

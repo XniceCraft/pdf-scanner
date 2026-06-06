@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useAsRef } from "@/hooks/use-as-ref";
 import { useController } from "react-hook-form";
-import { useOpenCV } from "@/providers/opencv-provider";
 import transformService from "@/lib/services/transform";
 import imageService from "@/lib/services/image";
 import pageService from "@/lib/services/page";
@@ -103,8 +102,6 @@ export function CropOverlay({
   control: Control<Edit>;
   handleUpdateEditedImage: (editedImage: EditedImage) => void;
 }) {
-  const { cv } = useOpenCV();
-
   const svgRef = useRef<SVGSVGElement>(null);
   const draggingIndex = useRef<number | null>(null);
   const bitmapRef = useRef<ImageBitmap | null>(null);
@@ -198,12 +195,7 @@ export function CropOverlay({
   }, [pageId, sourceImage]);
 
   const handleApply = useCallback(async () => {
-    if (
-      !pointsRef.current ||
-      !bitmapRef.current ||
-      !isUnsavedRef.current ||
-      !cv
-    )
+    if (!pointsRef.current || !bitmapRef.current || !isUnsavedRef.current)
       return;
 
     setPerspectiveCropValue({ enabled: true, points: pointsRef.current });
@@ -224,7 +216,6 @@ export function CropOverlay({
     await pageService.updateEditedImage(pageId, editedImage);
     handleUpdateEditedImage(editedImage);
   }, [
-    cv,
     bitmapRef,
     pointsRef,
     setPerspectiveCropValue,
