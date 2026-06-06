@@ -46,7 +46,7 @@ This project currently in development stage and not yet ready for stable product
   - Dexie.js
 - Image Processing
   - Canvas API
-  - OpenCV
+  - WebGL
 - PDF Generation
   - jsPdf
 
